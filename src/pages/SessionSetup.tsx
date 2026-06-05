@@ -9,10 +9,7 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 
 import { AppShell } from '../components/AppShell';
 
-import {
-  searchHits, toChirpStack, Region, MacVersion, RegParamsRevision,
-  PayloadCodecRuntime, type SearchHit,
-} from '../lib/ttn';
+import * as ttn from '@intelligent-farming/ttn-to-chirpstack/browser';
 import { CodeEditor } from '../components/CodeEditor';
 import {
   createChirpStackClient, listAllApplications, listAllDeviceProfiles,
@@ -26,32 +23,32 @@ import { useSession } from '../state/session';
 // region IDs like "US902-928"); the `chirpstack` value is what gets sent
 // to ChirpStack when building a profile manually.
 const REGIONS: Array<{ label: string; ttn: string; chirpstack: string }> = [
-  { label: 'US915 (Americas)', ttn: Region.US915, chirpstack: 'US915' },
-  { label: 'EU868 (Europe)', ttn: Region.EU868, chirpstack: 'EU868' },
-  { label: 'AS923', ttn: Region.AS923, chirpstack: 'AS923' },
-  { label: 'AU915', ttn: Region.AU915, chirpstack: 'AU915' },
-  { label: 'KR920', ttn: Region.KR920, chirpstack: 'KR920' },
-  { label: 'IN865', ttn: Region.IN865, chirpstack: 'IN865' },
-  { label: 'RU864', ttn: Region.RU864, chirpstack: 'RU864' },
-  { label: 'CN470', ttn: Region.CN470, chirpstack: 'CN470' },
+  { label: 'US915 (Americas)', ttn: ttn.Region.US915, chirpstack: 'US915' },
+  { label: 'EU868 (Europe)', ttn: ttn.Region.EU868, chirpstack: 'EU868' },
+  { label: 'AS923', ttn: ttn.Region.AS923, chirpstack: 'AS923' },
+  { label: 'AU915', ttn: ttn.Region.AU915, chirpstack: 'AU915' },
+  { label: 'KR920', ttn: ttn.Region.KR920, chirpstack: 'KR920' },
+  { label: 'IN865', ttn: ttn.Region.IN865, chirpstack: 'IN865' },
+  { label: 'RU864', ttn: ttn.Region.RU864, chirpstack: 'RU864' },
+  { label: 'CN470', ttn: ttn.Region.CN470, chirpstack: 'CN470' },
 ];
 
 const MAC_VERSIONS = [
-  MacVersion.LORAWAN_1_0_0,
-  MacVersion.LORAWAN_1_0_1,
-  MacVersion.LORAWAN_1_0_2,
-  MacVersion.LORAWAN_1_0_3,
-  MacVersion.LORAWAN_1_0_4,
-  MacVersion.LORAWAN_1_1_0,
+  ttn.MacVersion.LORAWAN_1_0_0,
+  ttn.MacVersion.LORAWAN_1_0_1,
+  ttn.MacVersion.LORAWAN_1_0_2,
+  ttn.MacVersion.LORAWAN_1_0_3,
+  ttn.MacVersion.LORAWAN_1_0_4,
+  ttn.MacVersion.LORAWAN_1_1_0,
 ];
 
 const REG_PARAMS = [
-  RegParamsRevision.A,
-  RegParamsRevision.B,
-  RegParamsRevision.RP002_1_0_0,
-  RegParamsRevision.RP002_1_0_1,
-  RegParamsRevision.RP002_1_0_2,
-  RegParamsRevision.RP002_1_0_3,
+  ttn.RegParamsRevision.A,
+  ttn.RegParamsRevision.B,
+  ttn.RegParamsRevision.RP002_1_0_0,
+  ttn.RegParamsRevision.RP002_1_0_1,
+  ttn.RegParamsRevision.RP002_1_0_2,
+  ttn.RegParamsRevision.RP002_1_0_3,
 ];
 
 type Mode = 'catalog' | 'manual' | 'existing';
@@ -73,16 +70,16 @@ export function SessionSetupPage() {
   const navigate = useNavigate();
 
   const [mode, setMode] = useState<Mode>('catalog');
-  const [region, setRegion] = useState<string>(Region.US915);
+  const [region, setRegion] = useState<string>(ttn.Region.US915);
 
   // Catalog mode state.
   const [modelQuery, setModelQuery] = useState('');
-  const [model, setModel] = useState<SearchHit | null>(null);
+  const [model, setModel] = useState<ttn.SearchHit | null>(null);
 
   // Manual mode state.
   const [manualName, setManualName] = useState('');
-  const [manualMacVersion, setManualMacVersion] = useState<string>(MacVersion.LORAWAN_1_0_3);
-  const [manualRegParams, setManualRegParams] = useState<string>(RegParamsRevision.A);
+  const [manualMacVersion, setManualMacVersion] = useState<string>(ttn.MacVersion.LORAWAN_1_0_3);
+  const [manualRegParams, setManualRegParams] = useState<string>(ttn.RegParamsRevision.A);
   const [manualOtaa, setManualOtaa] = useState(true);
   const [manualClassB, setManualClassB] = useState(false);
   const [manualClassC, setManualClassC] = useState(false);
@@ -160,8 +157,8 @@ export function SessionSetupPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings.chirpStackUrl, settings.apiKey, settings.tenantId]);
 
-  const modelHits = useMemo<SearchHit[]>(
-    () => modelQuery.length >= 2 ? searchHits(modelQuery, 20) : [],
+  const modelHits = useMemo<ttn.SearchHit[]>(
+    () => modelQuery.length >= 2 ? ttn.searchHits(modelQuery, 20) : [],
     [modelQuery],
   );
 
@@ -226,7 +223,7 @@ export function SessionSetupPage() {
         let ttnProfile: Parameters<typeof ensureDeviceProfile>[2];
         let chirpstackRegion: string;
         if (mode === 'catalog' && model) {
-          const v4 = toChirpStack(model.vendor, model.device, region as Region);
+          const v4 = ttn.toChirpStack(model.vendor, model.device, region as ttn.Region);
           ttnProfile = {
             region: v4.region,
             macVersion: v4.macVersion,
@@ -254,8 +251,8 @@ export function SessionSetupPage() {
             supportsClassB: manualClassB,
             supportsClassC: manualClassC,
             payloadCodecRuntime: manualCodec.trim()
-              ? PayloadCodecRuntime.JS
-              : PayloadCodecRuntime.NONE,
+              ? ttn.PayloadCodecRuntime.JS
+              : ttn.PayloadCodecRuntime.NONE,
             payloadCodecScript: manualCodec.trim() ? manualCodec : undefined,
             name: manualName.trim(),
             description: 'Manually configured via Leftenant',
@@ -298,9 +295,9 @@ export function SessionSetupPage() {
 
   const previewProfileName = (() => {
     if (mode === 'catalog' && model) {
-      const v4 = toChirpStack(
+      const v4 = ttn.toChirpStack(
         model.vendor, model.device,
-        (model.regions.includes(region) ? region : model.regions[0]) as Region,
+        (model.regions.includes(region) ? region : model.regions[0]) as ttn.Region,
       );
       return profileNameFor(model.device, v4.region);
     }

@@ -4,17 +4,17 @@ import {
   Paper, Select, Stack, TextField, Typography, Chip,
 } from '@mui/material';
 
-import { searchHits, toChirpStack, Region, type SearchHit, type ChirpStackV4DeviceProfile } from '../lib/ttn';
+import * as ttn from '@intelligent-farming/ttn-to-chirpstack/browser';
 
 const REGIONS: Array<{ label: string; value: string }> = [
-  { label: 'EU868 (Europe 863-870)', value: Region.EU868 },
-  { label: 'US915 (Americas 902-928)', value: Region.US915 },
-  { label: 'AS923', value: Region.AS923 },
-  { label: 'AU915 (915-928)', value: Region.AU915 },
-  { label: 'KR920 (920-923)', value: Region.KR920 },
-  { label: 'IN865 (865-867)', value: Region.IN865 },
-  { label: 'RU864 (864-870)', value: Region.RU864 },
-  { label: 'CN470 (470-510)', value: Region.CN470 },
+  { label: 'EU868 (Europe 863-870)', value: ttn.Region.EU868 },
+  { label: 'US915 (Americas 902-928)', value: ttn.Region.US915 },
+  { label: 'AS923', value: ttn.Region.AS923 },
+  { label: 'AU915 (915-928)', value: ttn.Region.AU915 },
+  { label: 'KR920 (920-923)', value: ttn.Region.KR920 },
+  { label: 'IN865 (865-867)', value: ttn.Region.IN865 },
+  { label: 'RU864 (864-870)', value: ttn.Region.RU864 },
+  { label: 'CN470 (470-510)', value: ttn.Region.CN470 },
 ];
 
 /**
@@ -26,23 +26,23 @@ const REGIONS: Array<{ label: string; value: string }> = [
  * home page so the integration can be sanity-checked end-to-end.
  */
 export function ModelPicker() {
-  const [region, setRegion] = useState<string>(Region.US915);
+  const [region, setRegion] = useState<string>(ttn.Region.US915);
   const [query, setQuery] = useState('');
-  const [selected, setSelected] = useState<SearchHit | null>(null);
+  const [selected, setSelected] = useState<ttn.SearchHit | null>(null);
 
   // Debounce-free: searchHits is in-memory and fast.
-  const hits = useMemo<SearchHit[]>(() => query.length >= 2 ? searchHits(query, 20) : [], [query]);
+  const hits = useMemo<ttn.SearchHit[]>(() => query.length >= 2 ? ttn.searchHits(query, 20) : [], [query]);
 
   // Build a profile only when both selection and region are set AND the
   // device supports the chosen region. Default target is v4 — the
   // ChirpStack version Leftenant ships against.
-  let profile: ChirpStackV4DeviceProfile | undefined;
+  let profile: ttn.ChirpStackV4DeviceProfile | undefined;
   let profileError: string | undefined;
   if (selected) {
     if (!selected.regions.includes(region)) {
       profileError = `${selected.name} doesn't list ${region} as a supported region. Try one of: ${selected.regions.join(', ')}.`;
     } else {
-      try { profile = toChirpStack(selected.vendor, selected.device, region as Region); }
+      try { profile = ttn.toChirpStack(selected.vendor, selected.device, region as ttn.Region); }
       catch (err) { profileError = err instanceof Error ? err.message : String(err); }
     }
   }
