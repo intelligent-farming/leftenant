@@ -1,6 +1,6 @@
 <img src="src/assets/leftenant-logo-full.png" alt="Leftenant" width="320" alt="Leftenant">
 
-Browser-based field provisioning tool for ChirpStack. Provisions LoRaWAN devices in batches against a single model, application, and device profile. Runs in a browser on the same LAN as the ChirpStack instance and communicates with it via the `chirpstack-rest-api` gateway and MQTT-over-WSS.
+Browser-based device provisioning tool for ChirpStack. Provisions LoRaWAN devices in batches against a single model, application, and device profile. Runs in a browser on the same LAN as the ChirpStack instance and communicates with it via the `chirpstack-rest-api` gateway and MQTT-over-WSS.
 
 ## Quick start
 
