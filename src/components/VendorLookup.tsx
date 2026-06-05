@@ -5,6 +5,7 @@ import {
 
 import { detectVendor, parseQr } from '../lib/oui';
 import type { QrParseResult, VendorInfo } from '../lib/oui';
+import { useT } from '../i18n';
 
 /**
  * Diagnostic widget proving Phase 0 of the browser adapter chain works:
@@ -17,6 +18,7 @@ import type { QrParseResult, VendorInfo } from '../lib/oui';
 export function VendorLookup() {
   const [input, setInput] = useState('');
   const [eui, setEui] = useState('');
+  const t = useT();
 
   const trimmed = input.trim();
   const looksLikeEui = /^[0-9A-Fa-f\s:_-]{16,}$/.test(trimmed);
@@ -37,15 +39,14 @@ export function VendorLookup() {
     <Paper sx={{ p: 4 }}>
       <Stack spacing={2}>
         <Box>
-          <Typography variant="h6">Vendor lookup</Typography>
+          <Typography variant="h6">{t('vendor.title')}</Typography>
           <Typography variant="body2" color="text.secondary">
-            Paste a QR string or a 16-char DevEUI. Confirms the local OUI
-            registry + QR decoder are working in the browser.
+            {t('vendor.intro')}
           </Typography>
         </Box>
 
         <TextField
-          label="QR string or DevEUI"
+          label={t('vendor.input.label')}
           placeholder="LW:D0:… or A84041035660E3AA"
           value={input}
           onChange={(e) => { setInput(e.target.value); setEui(e.target.value); }}
@@ -56,16 +57,16 @@ export function VendorLookup() {
           spellCheck={false}
         />
 
-        {parseErr && <Alert severity="warning">QR parse failed: {parseErr}</Alert>}
+        {parseErr && <Alert severity="warning">{t('vendor.parse.failed', { message: parseErr })}</Alert>}
 
         {parsed && (
           <Alert severity="success">
             <Typography variant="body2" component="div">
-              <strong>Strategy:</strong> {parsed.source}<br />
-              <strong>DevEUI:</strong> <code>{parsed.devEui}</code><br />
-              {parsed.joinEui && <><strong>JoinEUI:</strong> <code>{parsed.joinEui}</code><br /></>}
-              {parsed.appKey && <><strong>AppKey:</strong> <code>{parsed.appKey}</code><br /></>}
-              {parsed.serialNumber && <><strong>Serial:</strong> {parsed.serialNumber}<br /></>}
+              <strong>{t('vendor.parsed.strategy')}</strong> {parsed.source}<br />
+              <strong>{t('vendor.parsed.devEui')}</strong> <code>{parsed.devEui}</code><br />
+              {parsed.joinEui && <><strong>{t('vendor.parsed.joinEui')}</strong> <code>{parsed.joinEui}</code><br /></>}
+              {parsed.appKey && <><strong>{t('vendor.parsed.appKey')}</strong> <code>{parsed.appKey}</code><br /></>}
+              {parsed.serialNumber && <><strong>{t('vendor.parsed.serial')}</strong> {parsed.serialNumber}<br /></>}
             </Typography>
           </Alert>
         )}
@@ -73,15 +74,15 @@ export function VendorLookup() {
         {vendor ? (
           <Alert severity="info">
             <Typography variant="body2">
-              <strong>Vendor:</strong> {vendor.name}
-              {vendor.id && <> · slug <code>{vendor.id}</code></>}
-              {vendor.knownLorawanVendor && ' · known LoRaWAN vendor'}
+              <strong>{t('vendor.vendor.label')}</strong> {vendor.name}
+              {vendor.id && <> · {t('vendor.vendor.slug')} <code>{vendor.id}</code></>}
+              {vendor.knownLorawanVendor && ' · ' + t('vendor.vendor.known')}
               {' '}(OUI <code>{vendor.oui}</code>)
             </Typography>
           </Alert>
         ) : lookupTarget.length === 16 && trimmed.length > 0 && (
           <Alert severity="info">
-            OUI <code>{lookupTarget.slice(0, 6)}</code> not in registry.
+            {t('vendor.vendor.unknown', { oui: lookupTarget.slice(0, 6) })}
           </Alert>
         )}
       </Stack>

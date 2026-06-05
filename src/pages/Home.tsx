@@ -11,6 +11,7 @@ import LinearScaleIcon from '@mui/icons-material/LinearScale';
 
 import { useSettings } from '../state/settings';
 import { useSession } from '../state/session';
+import { useT } from '../i18n';
 
 import { AppShell } from '../components/AppShell';
 import { VendorLookup } from '../components/VendorLookup';
@@ -22,6 +23,7 @@ export function HomePage() {
   const session = useSession((s) => s.active);
   const submissionCount = useSession((s) => s.submissions.length);
   const navigate = useNavigate();
+  const t = useT();
 
   return (
     <AppShell>
@@ -37,14 +39,14 @@ export function HomePage() {
           <Paper sx={{ p: { xs: 3, md: 4 } }}>
             <Stack spacing={2}>
               <Stack direction="row" alignItems="center" spacing={2}>
-                <Chip color="success" label="Session active" size="small" />
+                <Chip color="success" label={t('home.session.active')} size="small" />
                 <Typography variant="caption" color="text.secondary">
-                  {submissionCount} device{submissionCount === 1 ? '' : 's'} added so far
+                  {t('home.session.devices_added', { count: submissionCount })}
                 </Typography>
               </Stack>
               <Typography variant="h6">{session.modelName}</Typography>
               <Typography variant="body2" color="text.secondary">
-                Going into {session.applicationName} · profile {session.deviceProfileName}
+                {t('home.session.summary', { appName: session.applicationName, profileName: session.deviceProfileName })}
               </Typography>
               <Stack direction="row" spacing={2}>
                 <Button
@@ -52,7 +54,7 @@ export function HomePage() {
                   onClick={() => navigate('/session')}
                   startIcon={<LinearScaleIcon />}
                 >
-                  Resume session
+                  {t('home.session.resume')}
                 </Button>
               </Stack>
             </Stack>
@@ -60,11 +62,9 @@ export function HomePage() {
         ) : (
           <Paper sx={{ p: { xs: 3, md: 4 } }}>
             <Stack spacing={2} alignItems="flex-start">
-              <Typography variant="h6">Start an onboarding session</Typography>
+              <Typography variant="h6">{t('home.session.start.title')}</Typography>
               <Typography variant="body2" color="text.secondary">
-                Pick a device model, application, and profile once — then loop:
-                scan QR, submit, repeat. Built for batches of 1 to thousands of
-                identical devices.
+                {t('home.session.start.body')}
               </Typography>
               <Button
                 variant="contained"
@@ -72,7 +72,7 @@ export function HomePage() {
                 onClick={() => navigate('/session/new')}
                 startIcon={<PlayArrowIcon />}
               >
-                New session
+                {t('home.session.start.button')}
               </Button>
             </Stack>
           </Paper>
@@ -80,9 +80,9 @@ export function HomePage() {
 
         <Accordion variant="outlined" disableGutters>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography variant="subtitle1">Diagnostics</Typography>
+            <Typography variant="subtitle1">{t('home.diagnostics.title')}</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
-              vendor lookup · model preview · live join feed
+              {t('home.diagnostics.subtitle')}
             </Typography>
           </AccordionSummary>
           <AccordionDetails>

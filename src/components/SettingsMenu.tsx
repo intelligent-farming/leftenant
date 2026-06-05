@@ -10,8 +10,10 @@ import DarkModeIcon from '@mui/icons-material/DarkMode';
 import SettingsBrightnessIcon from '@mui/icons-material/SettingsBrightness';
 import RouterIcon from '@mui/icons-material/Router';
 import CheckIcon from '@mui/icons-material/Check';
+import LanguageIcon from '@mui/icons-material/Language';
 
 import { useSettings } from '../state/settings';
+import { SUPPORTED_LOCALES, useT, type MessageKey, type Locale } from '../i18n';
 
 type Mode = 'system' | 'light' | 'dark';
 
@@ -21,10 +23,10 @@ const THEME_ICONS: Record<Mode, React.ReactElement> = {
   dark: <DarkModeIcon fontSize="small" />,
 };
 
-const THEME_LABELS: Record<Mode, string> = {
-  system: 'Match system',
-  light: 'Light',
-  dark: 'Dark',
+const THEME_LABEL_KEYS: Record<Mode, MessageKey> = {
+  system: 'menu.theme.system',
+  light: 'menu.theme.light',
+  dark: 'menu.theme.dark',
 };
 
 /**
@@ -33,26 +35,30 @@ const THEME_LABELS: Record<Mode, string> = {
  *
  *   - Connection settings (navigates to /settings)
  *   - Theme override (system / light / dark)
+ *   - UI language (English / Español / Italiano / Français / Deutsch /
+ *     Português)
  *
  * Add new app-wide preferences here rather than spreading them across pages.
  */
 export function SettingsMenu() {
   const navigate = useNavigate();
   const themeMode = useSettings((s) => s.themeMode ?? 'system');
+  const locale = useSettings((s) => s.locale);
   const setSettings = useSettings((s) => s.setSettings);
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLButtonElement | null>(null);
+  const t = useT();
 
   const close = () => setOpen(false);
 
   return (
     <>
-      <Tooltip title="Settings">
+      <Tooltip title={t('menu.settings.tooltip')}>
         <IconButton
           ref={anchorRef}
           onClick={() => setOpen(true)}
           size="small"
-          aria-label="Settings"
+          aria-label={t('menu.settings.tooltip')}
         >
           <SettingsIcon fontSize="small" />
         </IconButton>
@@ -70,8 +76,8 @@ export function SettingsMenu() {
         >
           <ListItemIcon><RouterIcon fontSize="small" /></ListItemIcon>
           <ListItemText
-            primary="Connection settings"
-            secondary="ChirpStack URL · API key · MQTT broker"
+            primary={t('menu.connection.title')}
+            secondary={t('menu.connection.subtitle')}
             secondaryTypographyProps={{ variant: 'caption' }}
           />
         </MenuItem>
@@ -83,7 +89,7 @@ export function SettingsMenu() {
           color="text.secondary"
           sx={{ px: 2, py: 0.5, display: 'block', fontSize: 11 }}
         >
-          Theme
+          {t('menu.theme.label')}
         </Typography>
         {(['system', 'light', 'dark'] as const).map((m) => (
           <MenuItem
@@ -92,8 +98,34 @@ export function SettingsMenu() {
             selected={themeMode === m}
           >
             <ListItemIcon>{THEME_ICONS[m]}</ListItemIcon>
-            <ListItemText primary={THEME_LABELS[m]} />
+            <ListItemText primary={t(THEME_LABEL_KEYS[m])} />
             {themeMode === m && <CheckIcon fontSize="small" sx={{ ml: 1 }} />}
+          </MenuItem>
+        ))}
+
+        <Divider />
+
+        <Typography
+          variant="overline"
+          color="text.secondary"
+          sx={{ px: 2, py: 0.5, display: 'block', fontSize: 11 }}
+        >
+          {t('menu.language.label')}
+        </Typography>
+        {SUPPORTED_LOCALES.map((l, idx) => (
+          <MenuItem
+            key={l.code}
+            // Setting `locale` triggers `LocaleProvider`'s effect which calls
+            // i18n.activate() — all components subscribed via `useLingui()`
+            // re-render with the new translations.
+            onClick={() => { setSettings({ locale: l.code as Locale }); close(); }}
+            selected={(locale ?? 'en') === l.code}
+          >
+            <ListItemIcon>
+              {idx === 0 ? <LanguageIcon fontSize="small" /> : <span style={{ width: 20 }} />}
+            </ListItemIcon>
+            <ListItemText primary={l.label} />
+            {(locale ?? 'en') === l.code && <CheckIcon fontSize="small" sx={{ ml: 1 }} />}
           </MenuItem>
         ))}
       </Menu>

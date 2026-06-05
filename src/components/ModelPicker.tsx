@@ -6,6 +6,8 @@ import {
 
 import * as ttn from '@intelligent-farming/ttn-to-chirpstack/browser';
 
+import { useT } from '../i18n';
+
 const REGIONS: Array<{ label: string; value: string }> = [
   { label: 'EU868 (Europe 863-870)', value: ttn.Region.EU868 },
   { label: 'US915 (Americas 902-928)', value: ttn.Region.US915 },
@@ -29,6 +31,7 @@ export function ModelPicker() {
   const [region, setRegion] = useState<string>(ttn.Region.US915);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<ttn.SearchHit | null>(null);
+  const t = useT();
 
   // Debounce-free: searchHits is in-memory and fast.
   const hits = useMemo<ttn.SearchHit[]>(() => query.length >= 2 ? ttn.searchHits(query, 20) : [], [query]);
@@ -40,7 +43,7 @@ export function ModelPicker() {
   let profileError: string | undefined;
   if (selected) {
     if (!selected.regions.includes(region)) {
-      profileError = `${selected.name} doesn't list ${region} as a supported region. Try one of: ${selected.regions.join(', ')}.`;
+      profileError = t('model.region_mismatch', { name: selected.name, region, regions: selected.regions.join(', ') });
     } else {
       try { profile = ttn.toChirpStack(selected.vendor, selected.device, region as ttn.Region); }
       catch (err) { profileError = err instanceof Error ? err.message : String(err); }
@@ -51,17 +54,15 @@ export function ModelPicker() {
     <Paper sx={{ p: 4 }}>
       <Stack spacing={2}>
         <Box>
-          <Typography variant="h6">Device model picker</Typography>
+          <Typography variant="h6">{t('model.title')}</Typography>
           <Typography variant="body2" color="text.secondary">
-            Search the bundled TTN catalog and preview the ChirpStack profile
-            that would be created. The session-onboarding flow will use this
-            same lookup.
+            {t('model.intro')}
           </Typography>
         </Box>
 
         <FormControl size="small" sx={{ maxWidth: 320 }}>
-          <InputLabel>Region</InputLabel>
-          <Select value={region} label="Region" onChange={(e) => setRegion(e.target.value)}>
+          <InputLabel>{t('model.region.label')}</InputLabel>
+          <Select value={region} label={t('model.region.label')} onChange={(e) => setRegion(e.target.value)}>
             {REGIONS.map((r) => (
               <MenuItem key={r.value} value={r.value}>{r.label}</MenuItem>
             ))}
@@ -78,7 +79,7 @@ export function ModelPicker() {
           onInputChange={(_, v) => setQuery(v)}
           filterOptions={(x) => x}      // server-side search; don't re-filter
           renderInput={(params) => (
-            <TextField {...params} label="Search device (vendor, model, friendly name)" placeholder='Try "dragino lds02"' />
+            <TextField {...params} label={t('model.search.label')} placeholder={t('model.search.placeholder')} />
           )}
           renderOption={(props, opt) => (
             <li {...props} key={`${opt.vendor}/${opt.device}`}>
@@ -90,7 +91,7 @@ export function ModelPicker() {
               </Stack>
             </li>
           )}
-          noOptionsText={query.length < 2 ? 'Type 2+ characters to search' : 'No matches'}
+          noOptionsText={query.length < 2 ? t('model.noOptions.short') : t('model.noOptions.empty')}
         />
 
         {profileError && <Alert severity="warning">{profileError}</Alert>}

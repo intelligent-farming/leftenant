@@ -5,6 +5,8 @@ import { Alert, Box, Button, Stack, Typography } from '@mui/material';
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import Scanner from 'qr-scanner';
 
+import { useT } from '../i18n';
+
 /**
  * Thin React wrapper around the `qr-scanner` library. Wires up a `<video>`
  * element, requests camera permission, and fires `onScan` once per detection.
@@ -47,6 +49,7 @@ export const QrScanner = forwardRef<QrScannerHandle, QrScannerProps>(function Qr
   const lastScan = useRef<{ text: string; at: number } | null>(null);
   const [permission, setPermission] = useState<Permission>('pending');
   const [error, setError] = useState<string | undefined>();
+  const t = useT();
 
   // Initialize the scanner once on mount.
   useEffect(() => {
@@ -200,24 +203,22 @@ export const QrScanner = forwardRef<QrScannerHandle, QrScannerProps>(function Qr
             }}
             spacing={1}
           >
-            {permission === 'pending' && <Typography variant="body2">Requesting camera…</Typography>}
+            {permission === 'pending' && <Typography variant="body2">{t('qr.permission.requesting')}</Typography>}
             {permission === 'denied' && (
               <>
                 <VideocamOffIcon fontSize="large" />
-                <Typography variant="subtitle1">Camera blocked</Typography>
+                <Typography variant="subtitle1">{t('qr.permission.denied.title')}</Typography>
                 <Typography variant="body2">
-                  Grant camera permission in your browser to scan QR codes. You
-                  can still type DevEUI / JoinEUI / AppKey below.
+                  {t('qr.permission.denied.body')}
                 </Typography>
               </>
             )}
             {permission === 'unavailable' && (
               <>
                 <VideocamOffIcon fontSize="large" />
-                <Typography variant="subtitle1">No camera available</Typography>
+                <Typography variant="subtitle1">{t('qr.permission.unavailable.title')}</Typography>
                 <Typography variant="body2">
-                  This device has no usable camera. Use the manual entry form
-                  below.
+                  {t('qr.permission.unavailable.body')}
                 </Typography>
               </>
             )}
@@ -228,7 +229,7 @@ export const QrScanner = forwardRef<QrScannerHandle, QrScannerProps>(function Qr
         <Alert
           severity="warning"
           action={
-            <Button size="small" onClick={retry}>Retry</Button>
+            <Button size="small" onClick={retry}>{t('qr.retry')}</Button>
           }
         >
           {error}

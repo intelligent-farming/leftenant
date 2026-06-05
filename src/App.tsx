@@ -5,6 +5,7 @@ import type { PaletteMode } from '@mui/material';
 
 import { createAppTheme } from './theme';
 import { useSettings } from './state/settings';
+import { LocaleProvider } from './i18n/LocaleProvider';
 import { SettingsPage } from './pages/Settings';
 import { HomePage } from './pages/Home';
 import { SessionSetupPage } from './pages/SessionSetup';
@@ -26,15 +27,17 @@ export function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/session/new" element={<Gated><SessionSetupPage /></Gated>} />
-          <Route path="/session" element={<Gated><SessionPage /></Gated>} />
-          <Route path="/" element={<Gated><HomePage /></Gated>} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
+      <LocaleProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/session/new" element={<Gated><SessionSetupPage /></Gated>} />
+            <Route path="/session" element={<Gated><SessionPage /></Gated>} />
+            <Route path="/" element={<Gated><HomePage /></Gated>} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </LocaleProvider>
     </ThemeProvider>
   );
 }

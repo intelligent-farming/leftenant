@@ -1,6 +1,6 @@
-# Leftenant
+<img src="src/assets/leftenant-logo-full.png" alt="Leftenant" width="320" alt="Leftenant">
 
-Browser-based field provisioning tool for ChirpStack. Onboard one LoRaWAN device or a thousand of the same model with the same fluency: pick the model, application, and device profile once, then loop — scan QR, submit, wait for the green light, next device. Runs in a browser on the same LAN as the ChirpStack instance and talks to it over the `chirpstack-rest-api` gateway and MQTT-over-WSS.
+Browser-based field provisioning tool for ChirpStack. Provisions LoRaWAN devices in batches against a single model, application, and device profile. Runs in a browser on the same LAN as the ChirpStack instance and communicates with it via the `chirpstack-rest-api` gateway and MQTT-over-WSS.
 
 ## Quick start
 
@@ -43,8 +43,13 @@ the first Leftenant run.
 ### 1. Enable a WebSocket listener on Mosquitto
 
 Leftenant subscribes to MQTT topics from the browser, so Mosquitto needs a
-WebSocket listener in addition to its default `:1883` MQTT listener. Add to
-`/etc/mosquitto/mosquitto.conf`:
+WebSocket listener in addition to its default `:1883` MQTT listener. The
+stock `chirpstack-docker` deployment does **not** include this listener —
+its bundled `mosquitto.conf` only opens `1883`, and its `docker-compose.yml`
+only publishes `1883:1883`.
+
+In your `chirpstack-docker` checkout, edit
+`configuration/mosquitto/config/mosquitto.conf` and append:
 
 ```
 listener 9001
@@ -53,7 +58,22 @@ protocol websockets
 allow_anonymous true
 ```
 
-Restart Mosquitto. Leftenant will connect to `ws://<host>:9001`.
+Then publish the new port from the `mosquitto` service in
+`docker-compose.yml`:
+
+```yaml
+mosquitto:
+  image: eclipse-mosquitto:2
+  ports:
+    - "1883:1883"
+    - "9001:9001"   # add this
+```
+
+Apply with `docker compose up -d` (a plain `restart` won't pick up the new
+port mapping). Leftenant will connect to `ws://<host>:9001`.
+
+> Host-install (non-Docker) Mosquitto: add the same `listener 9001` block to
+> `/etc/mosquitto/mosquitto.conf` and `systemctl restart mosquitto` instead.
 
 ### 2. Allow CORS on the chirpstack-rest-api service
 
@@ -68,17 +88,14 @@ deployment) to allow the origin that serves the Leftenant SPA, e.g.
 
 In the ChirpStack admin UI: **Tenant → API Keys → Add**. Copy the token;
 Leftenant prompts for it on first run and stores it in `localStorage`. The
-key is a delegation of operator authority, scoped to the tenant — see the
-"Security" note below for the threat model.
+key is scoped to the tenant — see the security model section below.
 
-### Security model in brief
+### Security model
 
-The SPA holds the ChirpStack API key in `localStorage` and talks directly to
-ChirpStack and Mosquitto. No backend. This is acceptable because Leftenant
-runs on the operator's private network — the same threat model as the
-ChirpStack admin UI itself. If multi-user deployment ever becomes a real
-requirement, slip a thin backend service in front; until then, the simpler
-architecture wins.
+The SPA stores the ChirpStack API key in `localStorage` and calls ChirpStack
+and Mosquitto directly. There is no backend. This assumes Leftenant runs on
+the operator's private network, the same trust boundary as the ChirpStack
+admin UI.
 
 ## Project layout
 
@@ -96,7 +113,7 @@ src/
 
 ## Status
 
-What's currently working:
+Currently working:
 
 - Connection wizard with REST + MQTT URL probes
 - Session setup (catalog / manual / existing-profile modes)
@@ -105,7 +122,7 @@ What's currently working:
 - Live MQTT join feed with vendor lookup
 - Per-session submission history with audio feedback
 
-What's queued:
+Roadmap:
 
 - Verification listener — confirming each submitted device actually joined the
   network, by subscribing to ChirpStack's per-device join events and updating

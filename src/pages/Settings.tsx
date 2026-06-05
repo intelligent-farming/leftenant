@@ -12,6 +12,7 @@ import ErrorIcon from '@mui/icons-material/Error';
 
 import { useSettings, type ConnectionSettings } from '../state/settings';
 import { probeConnection, ChirpStackApiError } from '../lib/chirpstack-api';
+import { useT } from '../i18n';
 import logoFull from '../assets/leftenant-logo-full.png';
 
 // ChirpStack v4's default tenant has a well-known UUID. Used as the fallback
@@ -38,6 +39,7 @@ interface TestResult {
 export function SettingsPage() {
   const settings = useSettings();
   const navigate = useNavigate();
+  const t = useT();
 
   // Local draft state — only commit to the persistent store on Save.
   const [draft, setDraft] = useState<ConnectionSettings>({
@@ -68,16 +70,14 @@ export function SettingsPage() {
       );
       setGrpcTest({
         status: 'ok',
-        message: applicationCount === 0
-          ? 'Connected — tenant has no applications yet'
-          : `Connected — ${applicationCount} application${applicationCount === 1 ? '' : 's'} in this tenant`,
+        message: t('settings.test.chirpstack.connected', { count: applicationCount }),
       });
     } catch (err) {
       const msg = err instanceof ChirpStackApiError
-        ? `${err.message} (check the API key and the tenant ID)`
+        ? t('settings.test.chirpstack.error', { message: err.message })
         : err instanceof Error
           ? err.message
-          : 'Connection failed';
+          : t('settings.test.chirpstack.connection_failed');
       setGrpcTest({ status: 'error', message: msg });
     }
 
@@ -87,11 +87,11 @@ export function SettingsPage() {
     try {
       const u = new URL(draft.mqttUrl);
       if (u.protocol !== 'ws:' && u.protocol !== 'wss:') {
-        throw new Error('MQTT URL must use ws:// or wss://');
+        throw new Error(t('settings.test.mqtt.invalid_protocol'));
       }
-      setMqttTest({ status: 'ok', message: 'URL parses — use the live feed on the home screen to test' });
+      setMqttTest({ status: 'ok', message: t('settings.test.mqtt.ok') });
     } catch (err) {
-      setMqttTest({ status: 'error', message: err instanceof Error ? err.message : 'Invalid URL' });
+      setMqttTest({ status: 'error', message: err instanceof Error ? err.message : t('settings.test.mqtt.invalid') });
     }
   };
 
@@ -126,29 +126,29 @@ export function SettingsPage() {
             }}
           />
           <Typography variant="body1" color="text.secondary">
-            Connect to your local ChirpStack. These settings persist on this device.
+            {t('settings.intro')}
           </Typography>
         </Box>
 
         <Paper sx={{ p: 3 }}>
           <Stack spacing={2.5}>
-            <Typography variant="h6">ChirpStack</Typography>
+            <Typography variant="h6">{t('settings.chirpstack.section')}</Typography>
             <TextField
-              label="REST API URL"
+              label={t('settings.chirpstack.url.label')}
               placeholder="http://chirpstack.local:8090"
               value={draft.chirpStackUrl}
               onChange={(e) => update({ chirpStackUrl: e.target.value })}
               error={chirpStackUrlError}
               helperText={chirpStackUrlError
-                ? 'Must be a full http:// or https:// URL'
-                : 'ChirpStack v4 REST gateway — typically the chirpstack-rest-api service on port 8090.'}
+                ? t('settings.chirpstack.url.error')
+                : t('settings.chirpstack.url.helper')}
             />
             <TextField
-              label="API key"
+              label={t('settings.chirpstack.apikey.label')}
               type={showKey ? 'text' : 'password'}
               value={draft.apiKey}
               onChange={(e) => update({ apiKey: e.target.value })}
-              helperText="Mint one in ChirpStack: Tenant → API Keys → Add."
+              helperText={t('settings.chirpstack.apikey.helper')}
               InputProps={{
                 endAdornment: (
                   <InputAdornment position="end">
@@ -160,10 +160,10 @@ export function SettingsPage() {
               }}
             />
             <TextField
-              label="Tenant UUID"
+              label={t('settings.chirpstack.tenant.label')}
               value={draft.tenantId ?? ''}
               onChange={(e) => update({ tenantId: e.target.value })}
-              helperText="Default tenant works out of the box for single-tenant deployments. Find others in ChirpStack: Tenants → click row → UUID at the top."
+              helperText={t('settings.chirpstack.tenant.helper')}
               spellCheck={false}
               autoComplete="off"
             />
@@ -173,24 +173,24 @@ export function SettingsPage() {
 
         <Paper sx={{ p: 3 }}>
           <Stack spacing={2.5}>
-            <Typography variant="h6">MQTT broker</Typography>
+            <Typography variant="h6">{t('settings.mqtt.section')}</Typography>
             <TextField
-              label="WebSocket URL"
+              label={t('settings.mqtt.url.label')}
               placeholder="ws://chirpstack.local:9001"
               value={draft.mqttUrl}
               onChange={(e) => update({ mqttUrl: e.target.value })}
               error={mqttUrlError}
               helperText={mqttUrlError
-                ? 'Must be a ws:// or wss:// URL'
-                : "Mosquitto's WebSocket listener — typically port 9001."}
+                ? t('settings.mqtt.url.error')
+                : t('settings.mqtt.url.helper')}
             />
             <TextField
-              label="Username (optional)"
+              label={t('settings.mqtt.username.label')}
               value={draft.mqttUsername ?? ''}
               onChange={(e) => update({ mqttUsername: e.target.value })}
             />
             <TextField
-              label="Password (optional)"
+              label={t('settings.mqtt.password.label')}
               type="password"
               value={draft.mqttPassword ?? ''}
               onChange={(e) => update({ mqttPassword: e.target.value })}
@@ -201,10 +201,10 @@ export function SettingsPage() {
 
         <Stack direction="row" spacing={2} justifyContent="flex-end">
           <Button onClick={onTest} variant="outlined">
-            Test connection
+            {t('settings.test.button')}
           </Button>
           <Button onClick={onSave} variant="contained" disabled={!canSave}>
-            Save &amp; continue
+            {t('settings.save.button')}
           </Button>
         </Stack>
       </Stack>
@@ -213,20 +213,21 @@ export function SettingsPage() {
 }
 
 function TestStatusRow({ label, result }: { label: string; result: TestResult }) {
+  const t = useT();
   if (result.status === 'idle') return null;
   if (result.status === 'testing') {
-    return <Alert severity="info">Testing {label}…</Alert>;
+    return <Alert severity="info">{t('settings.test.testing', { label })}</Alert>;
   }
   if (result.status === 'ok') {
     return (
       <Alert severity="success" icon={<CheckCircleIcon fontSize="inherit" />}>
-        {label}: {result.message ?? 'OK'}
+        {label}: {result.message ?? t('settings.test.ok.default')}
       </Alert>
     );
   }
   return (
     <Alert severity="error" icon={<ErrorIcon fontSize="inherit" />}>
-      {label}: {result.message ?? 'Failed'}
+      {label}: {result.message ?? t('settings.test.error.default')}
     </Alert>
   );
 }

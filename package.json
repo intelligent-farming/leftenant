@@ -29,6 +29,8 @@
     "@intelligent-farming/lorawan-qr-decoder": "^0.1.0",
     "@intelligent-farming/oui-registry": "^0.1.0",
     "@intelligent-farming/ttn-to-chirpstack": "^0.1.0",
+    "@lingui/core": "^6.2.0",
+    "@lingui/react": "^6.2.0",
     "@mui/icons-material": "^6.1.0",
     "@mui/material": "^6.1.0",
     "buffer": "^6.0.3",
@@ -38,10 +40,10 @@
     "process": "^0.11.10",
     "qr-scanner": "^1.4.2",
     "react": "^18.3.0",
-    "react-simple-code-editor": "^0.14.1",
-    "tesseract.js": "^5.1.0",
     "react-dom": "^18.3.0",
     "react-router-dom": "^6.26.0",
+    "react-simple-code-editor": "^0.14.1",
+    "tesseract.js": "^5.1.0",
     "zustand": "^4.5.0"
   },
   "devDependencies": {

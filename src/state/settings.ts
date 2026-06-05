@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
+import type { Locale } from '../i18n';
+
 /**
  * Connection settings the operator provides on first run. Persisted to
  * localStorage so the same machine doesn't have to reconfigure.
@@ -29,6 +31,11 @@ export interface ConnectionSettings {
    * `prefers-color-scheme`; `'light'` / `'dark'` pin the mode explicitly.
    */
   themeMode?: 'system' | 'light' | 'dark';
+  /**
+   * Active UI language. Persisted across reloads. When undefined, the
+   * `LocaleProvider` falls back to `detectBrowserLocale()` on first run.
+   */
+  locale?: Locale;
 }
 
 interface SettingsState extends ConnectionSettings {

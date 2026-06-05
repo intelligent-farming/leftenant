@@ -30,6 +30,7 @@ import { beepError, beepScan, beepSuccess } from '../lib/audio';
 import { QrScanner, type QrScannerHandle } from '../components/QrScanner';
 import { useSettings } from '../state/settings';
 import { useSession, type Submission, type SubmissionStatus } from '../state/session';
+import { i18n, useT } from '../i18n';
 
 const fmtElapsed = (startIso: string): string => {
   const ms = Date.now() - new Date(startIso).getTime();
@@ -49,6 +50,7 @@ export function SessionPage() {
   const markCreated = useSession((s) => s.markCreated);
   const markFailed = useSession((s) => s.markFailed);
   const navigate = useNavigate();
+  const t = useT();
 
   // Redirect away if there's no active session.
   useEffect(() => {
@@ -172,8 +174,8 @@ export function SessionPage() {
     if (parsed.joinEui) setJoinEui(parsed.joinEui);
     if (parsed.appKey) setAppKey(parsed.appKey);
     setLastScanInfo(
-      `${parsed.vendor?.name ?? contextLabel} via ${parsed.source}`
-      + (parsed.serialNumber ? ` · S/N ${parsed.serialNumber}` : ''),
+      i18n._('session.scan.context.via', { vendor: parsed.vendor?.name ?? contextLabel, source: parsed.source })
+      + (parsed.serialNumber ? ' · ' + i18n._('session.scan.context.sn', { sn: parsed.serialNumber }) : ''),
     );
   }, []);
 
@@ -181,8 +183,12 @@ export function SessionPage() {
     if (audioEnabled) beepScan();
     let parsed;
     try { parsed = parseQr(text); }
-    catch { setLastScanInfo(`Scanned but couldn't decode: "${text.slice(0, 50)}${text.length > 50 ? '…' : ''}"`); return; }
-    applyParsedResult(parsed, 'Decoded');
+    catch {
+      const preview = `${text.slice(0, 50)}${text.length > 50 ? '…' : ''}`;
+      setLastScanInfo(i18n._('session.scan.no_decode', { preview }));
+      return;
+    }
+    applyParsedResult(parsed, i18n._('session.scan.context.decoded'));
   }, [audioEnabled, applyParsedResult]);
 
   // OCR capture: grab the current viewfinder frame, Tesseract → text, then
@@ -194,11 +200,11 @@ export function SessionPage() {
     const scanner = scannerRef.current;
     const frame = scanner?.captureFrame();
     if (!frame) {
-      setLastScanInfo('Camera not ready yet.');
+      setLastScanInfo(i18n._('session.scan.camera_not_ready'));
       return;
     }
     setOcrBusy(true);
-    setLastScanInfo('Reading text…');
+    setLastScanInfo(i18n._('session.scan.ocr.reading'));
     setLastOcrText(undefined);
     try {
       const { text, rawText, confidence } = await recognizeText(frame);
@@ -206,9 +212,10 @@ export function SessionPage() {
       let parsed;
       try { parsed = parseQr(text); }
       catch {
-        const preview = text.replace(/\s+/g, ' ').trim().slice(0, 120);
+        const trimmed = text.replace(/\s+/g, ' ').trim().slice(0, 120);
+        const preview = trimmed + (trimmed.length === 120 ? '…' : '');
         setLastScanInfo(
-          `OCR (conf ${confidence.toFixed(0)}%) found no credentials in: "${preview}${preview.length === 120 ? '…' : ''}"`,
+          i18n._('session.scan.ocr.no_creds', { confidence: confidence.toFixed(0), preview }),
         );
         // Surface the raw text in console for diagnosis when nothing parses.
         // eslint-disable-next-line no-console
@@ -217,24 +224,25 @@ export function SessionPage() {
         return;
       }
       const missing = [
-        !parsed.appKey && 'AppKey',
-        !parsed.joinEui && 'JoinEUI',
+        !parsed.appKey && i18n._('session.scan.field.appKey'),
+        !parsed.joinEui && i18n._('session.scan.field.joinEui'),
       ].filter(Boolean) as string[];
       if (missing.length > 0) {
         // Partial parse: show which fields were dropped + the raw OCR text so
         // the operator can see what Tesseract actually read (often hex chars
         // got swapped for similar letters: 0↔O, 1↔I, 8↔B, etc.).
-        const preview = text.replace(/\s+/g, ' ').trim().slice(0, 160);
+        const trimmed = text.replace(/\s+/g, ' ').trim().slice(0, 160);
+        const preview = trimmed + (trimmed.length === 160 ? '…' : '');
         setLastScanInfo(
-          `OCR (conf ${confidence.toFixed(0)}%) — missing ${missing.join(' + ')}. Read: "${preview}${preview.length === 160 ? '…' : ''}"`,
+          i18n._('session.scan.ocr.missing', { confidence: confidence.toFixed(0), missing: missing.join(' + '), preview }),
         );
         // eslint-disable-next-line no-console
         console.warn('[OCR] partial parse. parsed:', parsed, '\nraw text:\n', rawText);
       }
       if (audioEnabled) beepScan();
-      applyParsedResult(parsed, `OCR (${confidence.toFixed(0)}%)`);
+      applyParsedResult(parsed, i18n._('session.scan.context.ocr', { confidence: confidence.toFixed(0) }));
     } catch (err) {
-      setLastScanInfo(`OCR failed: ${err instanceof Error ? err.message : String(err)}`);
+      setLastScanInfo(i18n._('session.scan.ocr.failed', { message: err instanceof Error ? err.message : String(err) }));
       if (audioEnabled) beepError();
     } finally {
       setOcrBusy(false);
@@ -268,10 +276,10 @@ export function SessionPage() {
             justifyContent="space-between"
           >
             <Box>
-              <Typography variant="overline" color="text.secondary">Session</Typography>
+              <Typography variant="overline" color="text.secondary">{t('session.label')}</Typography>
               <Typography variant="h6">{active.modelName}</Typography>
               <Typography variant="body2" color="text.secondary">
-                {active.applicationName} · {active.deviceProfileName}
+                {t('session.summary', { appName: active.applicationName, profileName: active.deviceProfileName })}
               </Typography>
             </Box>
             <Stack alignItems={{ xs: 'flex-start', sm: 'flex-end' }} spacing={1}>
@@ -279,17 +287,17 @@ export function SessionPage() {
                 {fmtElapsed(active.startedAt)}
               </Typography>
               <Button size="small" startIcon={<StopIcon />} color="inherit" onClick={onEnd}>
-                End session
+                {t('session.end.button')}
               </Button>
             </Stack>
           </Stack>
           <Divider sx={{ my: 2 }} />
           <Stack direction="row" spacing={3} sx={{ flexWrap: 'wrap', gap: 2 }}>
-            <StatChip label="Submitted" value={stats.total} />
-            <StatChip label="In flight" value={stats.pending} color={stats.pending > 0 ? 'warning' : undefined} />
-            <StatChip label="Created" value={stats.created} color={stats.created > 0 ? 'success' : undefined} />
+            <StatChip label={t('session.stat.submitted')} value={stats.total} />
+            <StatChip label={t('session.stat.inflight')} value={stats.pending} color={stats.pending > 0 ? 'warning' : undefined} />
+            <StatChip label={t('session.stat.created')} value={stats.created} color={stats.created > 0 ? 'success' : undefined} />
             {/* Phase 6: re-enable the Verified stat when the verification listener lands. */}
-            <StatChip label="Failed" value={stats.failed} color={stats.failed > 0 ? 'error' : undefined} />
+            <StatChip label={t('session.stat.failed')} value={stats.failed} color={stats.failed > 0 ? 'error' : undefined} />
           </Stack>
         </Paper>
 
@@ -309,15 +317,15 @@ export function SessionPage() {
                   alignItems={{ xs: 'flex-start', sm: 'center' }}
                   spacing={1}
                 >
-                  <Typography variant="h6">Scan QR code</Typography>
+                  <Typography variant="h6">{t('session.scan.title')}</Typography>
                   <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
                     <FormControlLabel
                       control={<Checkbox checked={scannerActive} onChange={(e) => setScannerActive(e.target.checked)} size="small" />}
-                      label="Camera"
+                      label={t('session.scan.camera')}
                     />
                     <FormControlLabel
                       control={<Checkbox checked={audioEnabled} onChange={(e) => setAudioEnabled(e.target.checked)} size="small" />}
-                      label="Sound"
+                      label={t('session.scan.sound')}
                     />
                   </Stack>
                 </Stack>
@@ -335,10 +343,10 @@ export function SessionPage() {
                     disabled={!scannerActive || submitting || ocrBusy}
                     startIcon={ocrBusy ? <CircularProgress size={16} /> : <TextFieldsIcon />}
                   >
-                    {ocrBusy ? 'Reading text…' : 'Read text from camera'}
+                    {ocrBusy ? t('session.scan.read_text.reading') : t('session.scan.read_text.button')}
                   </Button>
                   <Typography variant="caption" color="text.secondary">
-                    Use when the device has the EUIs / keys printed but no QR code.
+                    {t('session.scan.read_text.helper')}
                   </Typography>
                 </Stack>
 
@@ -354,34 +362,34 @@ export function SessionPage() {
           <Grid item xs={12} lg={6} sx={{ display: 'flex' }}>
             <Paper sx={{ p: { xs: 2, md: 3 }, width: '100%', display: 'flex', flexDirection: 'column' }}>
               <Stack spacing={2.5} sx={{ flexGrow: 1 }}>
-                <Typography variant="h6">Add a device</Typography>
+                <Typography variant="h6">{t('session.form.title')}</Typography>
             <TextField
               inputRef={devEuiRef}
-              label="DevEUI"
+              label={t('session.form.devEui.label')}
               value={devEui}
               onChange={(e) => setDevEui(e.target.value)}
               error={!devEuiValid}
-              helperText={!devEuiValid ? '16 hex characters required' : ' '}
+              helperText={!devEuiValid ? t('session.form.devEui.error') : ' '}
               autoFocus
               autoComplete="off"
               spellCheck={false}
             />
             <TextField
-              label="JoinEUI / AppEUI"
+              label={t('session.form.joinEui.label')}
               value={joinEui}
               onChange={(e) => setJoinEui(e.target.value)}
               error={!joinEuiValid}
-              helperText={!joinEuiValid ? '16 hex characters required' : 'Sticky across submissions — often the vendor default for a whole batch'}
+              helperText={!joinEuiValid ? t('session.form.joinEui.error') : t('session.form.joinEui.helper')}
               autoComplete="off"
               spellCheck={false}
             />
             <TextField
-              label={needsSeparateNwkKey ? 'AppKey (application root key)' : 'AppKey'}
+              label={needsSeparateNwkKey ? t('session.form.appKey.label.split') : t('session.form.appKey.label')}
               type={showKey ? 'text' : 'password'}
               value={appKey}
               onChange={(e) => setAppKey(e.target.value)}
               error={!appKeyValid}
-              helperText={!appKeyValid ? '32 hex characters required' : ' '}
+              helperText={!appKeyValid ? t('session.form.appKey.error') : ' '}
               autoComplete="off"
               spellCheck={false}
               InputProps={{
@@ -396,12 +404,12 @@ export function SessionPage() {
             />
             {needsSeparateNwkKey && (
               <TextField
-                label="NwkKey (network root key)"
+                label={t('session.form.nwkKey.label')}
                 type={showKey ? 'text' : 'password'}
                 value={nwkKey}
                 onChange={(e) => setNwkKey(e.target.value)}
                 error={!nwkKeyValid}
-                helperText={!nwkKeyValid ? '32 hex characters required' : 'Required for LoRaWAN 1.1.x devices'}
+                helperText={!nwkKeyValid ? t('session.form.nwkKey.error') : t('session.form.nwkKey.helper')}
                 autoComplete="off"
                 spellCheck={false}
               />
@@ -416,14 +424,14 @@ export function SessionPage() {
                     disabled={!canSubmit}
                     startIcon={submitting ? <CircularProgress size={16} /> : undefined}
                   >
-                    {submitting ? 'Adding…' : 'Add device'}
+                    {submitting ? t('session.form.submit.working') : t('session.form.submit.button')}
                   </Button>
                 </Stack>
 
                 {lastOcrText && (
                   <Box>
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                      Raw OCR text
+                      {t('session.ocr.raw_text')}
                     </Typography>
                     <Box
                       component="pre"
@@ -452,14 +460,14 @@ export function SessionPage() {
         {submissions.length > 0 && (
           <Paper sx={{ p: { xs: 2, md: 3 } }}>
             <Stack spacing={2}>
-              <Typography variant="h6">Recent submissions</Typography>
+              <Typography variant="h6">{t('session.recent.title')}</Typography>
               <TableContainer>
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell>DevEUI</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell align="right">Submitted</TableCell>
+                      <TableCell>{t('session.recent.devEui')}</TableCell>
+                      <TableCell>{t('session.recent.status')}</TableCell>
+                      <TableCell align="right">{t('session.recent.submitted')}</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -475,15 +483,15 @@ export function SessionPage() {
       </Stack>
 
       <Dialog open={endDialogOpen} onClose={() => setEndDialogOpen(false)}>
-        <DialogTitle>End this session?</DialogTitle>
+        <DialogTitle>{t('session.end.dialog.title')}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            The session history will be cleared. Devices already provisioned in ChirpStack are not affected.
+            {t('session.end.dialog.body')}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEndDialogOpen(false)}>Cancel</Button>
-          <Button onClick={onEndConfirmed} color="error" variant="contained">End session</Button>
+          <Button onClick={() => setEndDialogOpen(false)}>{t('session.end.dialog.cancel')}</Button>
+          <Button onClick={onEndConfirmed} color="error" variant="contained">{t('session.end.dialog.confirm')}</Button>
         </DialogActions>
       </Dialog>
     </AppShell>
@@ -516,15 +524,16 @@ function SubmissionRow({ sub }: { sub: Submission }) {
 }
 
 function StatusChip({ status, error }: { status: SubmissionStatus; error?: string }) {
+  const t = useT();
   switch (status) {
     case 'pending':
-      return <Chip size="small" label="In flight" icon={<HourglassEmptyIcon fontSize="inherit" />} />;
+      return <Chip size="small" label={t('session.status.pending')} icon={<HourglassEmptyIcon fontSize="inherit" />} />;
     case 'created':
-      return <Chip size="small" label="Created" color="info" icon={<CheckCircleIcon fontSize="inherit" />} variant="outlined" />;
+      return <Chip size="small" label={t('session.status.created')} color="info" icon={<CheckCircleIcon fontSize="inherit" />} variant="outlined" />;
     case 'verified':
-      return <Chip size="small" label="Verified" color="success" icon={<CheckCircleIcon fontSize="inherit" />} />;
+      return <Chip size="small" label={t('session.status.verified')} color="success" icon={<CheckCircleIcon fontSize="inherit" />} />;
     case 'failed':
-      return <Chip size="small" label="Failed" color="error" icon={<ErrorIcon fontSize="inherit" />} title={error} />;
+      return <Chip size="small" label={t('session.status.failed')} color="error" icon={<ErrorIcon fontSize="inherit" />} title={error} />;
     default:
       return <Chip size="small" label={status} icon={<RadioButtonUncheckedIcon fontSize="inherit" />} />;
   }

@@ -18,6 +18,7 @@ import {
 } from '../lib/chirpstack-api';
 import { useSettings } from '../state/settings';
 import { useSession } from '../state/session';
+import { useT } from '../i18n';
 
 // Region picker rows. The `ttn` value drives the catalog search (TTN
 // region IDs like "US902-928"); the `chirpstack` value is what gets sent
@@ -68,6 +69,7 @@ export function SessionSetupPage() {
   const settings = useSettings();
   const startSession = useSession((s) => s.startSession);
   const navigate = useNavigate();
+  const t = useT();
 
   const [mode, setMode] = useState<Mode>('catalog');
   const [region, setRegion] = useState<string>(ttn.Region.US915);
@@ -318,20 +320,19 @@ export function SessionSetupPage() {
     <AppShell maxWidth="md">
       <Stack spacing={3}>
         <Box>
-          <Typography variant="h4" gutterBottom>New onboarding session</Typography>
+          <Typography variant="h4" gutterBottom>{t('setup.title')}</Typography>
           <Typography variant="body1" color="text.secondary">
-            Pick the model, region, and application once. Every device added
-            during the session will inherit them.
+            {t('setup.intro')}
           </Typography>
         </Box>
 
         <Paper sx={{ p: 3 }}>
           <Stack spacing={2.5}>
-            <Typography variant="h6">Device model</Typography>
+            <Typography variant="h6">{t('setup.model.title')}</Typography>
             {showRegionSelector && (
               <FormControl size="small">
-                <InputLabel>Region</InputLabel>
-                <Select value={region} label="Region" onChange={(e) => setRegion(e.target.value)}>
+                <InputLabel>{t('setup.region.label')}</InputLabel>
+                <Select value={region} label={t('setup.region.label')} onChange={(e) => setRegion(e.target.value)}>
                   {REGIONS.map((r) => (
                     <MenuItem key={r.ttn} value={r.ttn}>{r.label}</MenuItem>
                   ))}
@@ -340,9 +341,9 @@ export function SessionSetupPage() {
             )}
 
             <Tabs value={mode} onChange={(_, v: Mode) => setMode(v)}>
-              <Tab value="catalog" label="From catalog" />
-              <Tab value="manual" label="Manual entry" />
-              <Tab value="existing" label="Existing profile" />
+              <Tab value="catalog" label={t('setup.mode.catalog')} />
+              <Tab value="manual" label={t('setup.mode.manual')} />
+              <Tab value="existing" label={t('setup.mode.existing')} />
             </Tabs>
 
             {mode === 'catalog' && (
@@ -357,7 +358,7 @@ export function SessionSetupPage() {
                   onInputChange={(_, v) => setModelQuery(v)}
                   filterOptions={(x) => x}
                   renderInput={(params) => (
-                    <TextField {...params} label="Search device" placeholder='Try "dragino lds02"' />
+                    <TextField {...params} label={t('setup.search.label')} placeholder={t('setup.search.placeholder')} />
                   )}
                   renderOption={(props, opt) => (
                     <li {...props} key={`${opt.vendor}/${opt.device}`}>
@@ -369,11 +370,11 @@ export function SessionSetupPage() {
                       </Stack>
                     </li>
                   )}
-                  noOptionsText={modelQuery.length < 2 ? 'Type 2+ characters to search' : 'No matches — switch to Manual entry to enter the profile by hand'}
+                  noOptionsText={modelQuery.length < 2 ? t('setup.search.noOptions.short') : t('setup.search.noOptions.empty')}
                 />
                 {modelRegionMismatch && (
                   <Alert severity="warning">
-                    {model!.name} doesn't list {region}. Supported regions: {model!.regions.join(', ')}
+                    {t('setup.region_mismatch', { name: model!.name, region, regions: model!.regions.join(', ') })}
                   </Alert>
                 )}
               </Stack>
@@ -382,24 +383,22 @@ export function SessionSetupPage() {
             {mode === 'manual' && (
               <Stack spacing={2}>
                 <Alert severity="info" variant="outlined">
-                  Use this when your device isn't in the bundled TTN catalog,
-                  or when you need a custom profile shape. Fields map directly
-                  to ChirpStack's <code>DeviceProfile</code>.
+                  {t('setup.manual.intro')}
                 </Alert>
                 <TextField
-                  label="Model name"
-                  placeholder="My Sensor v2"
+                  label={t('setup.manual.modelName.label')}
+                  placeholder={t('setup.manual.modelName.placeholder')}
                   value={manualName}
                   onChange={(e) => setManualName(e.target.value)}
-                  helperText="Used for device names and the auto-generated profile name."
+                  helperText={t('setup.manual.modelName.helper')}
                   autoComplete="off"
                 />
                 <Stack direction="row" spacing={2}>
                   <FormControl size="small" fullWidth>
-                    <InputLabel>MAC version</InputLabel>
+                    <InputLabel>{t('setup.manual.macVersion.label')}</InputLabel>
                     <Select
                       value={manualMacVersion}
-                      label="MAC version"
+                      label={t('setup.manual.macVersion.label')}
                       onChange={(e) => setManualMacVersion(e.target.value)}
                     >
                       {MAC_VERSIONS.map((v) => (
@@ -408,10 +407,10 @@ export function SessionSetupPage() {
                     </Select>
                   </FormControl>
                   <FormControl size="small" fullWidth>
-                    <InputLabel>Reg params</InputLabel>
+                    <InputLabel>{t('setup.manual.regParams.label')}</InputLabel>
                     <Select
                       value={manualRegParams}
-                      label="Reg params"
+                      label={t('setup.manual.regParams.label')}
                       onChange={(e) => setManualRegParams(e.target.value)}
                     >
                       {REG_PARAMS.map((v) => (
@@ -423,25 +422,25 @@ export function SessionSetupPage() {
                 <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
                   <FormControlLabel
                     control={<Checkbox checked={manualOtaa} onChange={(e) => setManualOtaa(e.target.checked)} />}
-                    label="OTAA"
+                    label={t('setup.manual.otaa')}
                   />
                   <FormControlLabel
                     control={<Checkbox checked={manualClassB} onChange={(e) => setManualClassB(e.target.checked)} />}
-                    label="Class B"
+                    label={t('setup.manual.classB')}
                   />
                   <FormControlLabel
                     control={<Checkbox checked={manualClassC} onChange={(e) => setManualClassC(e.target.checked)} />}
-                    label="Class C"
+                    label={t('setup.manual.classC')}
                   />
                 </Stack>
                 <CodeEditor
-                  label="Payload codec (optional JavaScript)"
+                  label={t('setup.manual.codec.label')}
                   value={manualCodec}
                   onChange={setManualCodec}
                   minRows={4}
                   maxRows={16}
-                  placeholder="function decodeUplink({ fPort, bytes }) { return { data: { … } }; }"
-                  helperText="Paste a TTN-style JS codec. Leave empty for no codec."
+                  placeholder={t('setup.manual.codec.placeholder')}
+                  helperText={t('setup.manual.codec.helper')}
                 />
               </Stack>
             )}
@@ -449,9 +448,7 @@ export function SessionSetupPage() {
             {mode === 'existing' && (
               <Stack spacing={2}>
                 <Alert severity="info" variant="outlined">
-                  Pick a profile that already exists in this tenant. No new
-                  profile gets created — devices added during the session use
-                  the one you select. The region comes from the profile.
+                  {t('setup.existing.intro')}
                 </Alert>
                 {profilesError && <Alert severity="error">{profilesError}</Alert>}
                 <Autocomplete
@@ -466,8 +463,8 @@ export function SessionSetupPage() {
                   renderInput={(params) => (
                     <TextField
                       {...params}
-                      label={profilesLoading ? 'Loading profiles…' : `Search profiles (${profiles.length})`}
-                      placeholder="dragino lds02 — US915"
+                      label={profilesLoading ? t('setup.existing.search.loading') : t('setup.existing.search.label', { count: profiles.length })}
+                      placeholder={t('setup.existing.search.placeholder')}
                       InputProps={{
                         ...params.InputProps,
                         endAdornment: (
@@ -487,19 +484,19 @@ export function SessionSetupPage() {
                           <Chip size="small" label={opt.region} />
                           <Chip size="small" label={opt.macVersion} variant="outlined" />
                           <Chip size="small" label={`reg ${opt.regParamsRevision}`} variant="outlined" />
-                          {opt.supportsOtaa && <Chip size="small" label="OTAA" color="primary" variant="outlined" />}
-                          {opt.supportsClassB && <Chip size="small" label="Class B" variant="outlined" />}
-                          {opt.supportsClassC && <Chip size="small" label="Class C" variant="outlined" />}
+                          {opt.supportsOtaa && <Chip size="small" label={t('setup.manual.otaa')} color="primary" variant="outlined" />}
+                          {opt.supportsClassB && <Chip size="small" label={t('setup.manual.classB')} variant="outlined" />}
+                          {opt.supportsClassC && <Chip size="small" label={t('setup.manual.classC')} variant="outlined" />}
                         </Stack>
                       </Stack>
                     </li>
                   )}
-                  noOptionsText={profilesLoading ? 'Loading…' : profiles.length === 0 ? 'No profiles in this tenant yet — use Catalog or Manual to create one' : 'No matches'}
+                  noOptionsText={profilesLoading ? t('setup.existing.noOptions.loading') : profiles.length === 0 ? t('setup.existing.noOptions.empty') : t('setup.existing.noOptions.no_match')}
                 />
                 {selectedProfile && (
                   <Box>
                     <Typography variant="caption" color="text.secondary">
-                      Region {selectedProfile.region} · MAC {selectedProfile.macVersion} · reg-params {selectedProfile.regParamsRevision}
+                      {t('setup.existing.summary', { region: selectedProfile.region, macVersion: selectedProfile.macVersion, regParams: selectedProfile.regParamsRevision })}
                     </Typography>
                   </Box>
                 )}
@@ -510,13 +507,13 @@ export function SessionSetupPage() {
 
         <Paper sx={{ p: 3 }}>
           <Stack spacing={2.5}>
-            <Typography variant="h6">Application</Typography>
+            <Typography variant="h6">{t('setup.app.title')}</Typography>
             {appsError && <Alert severity="error">{appsError}</Alert>}
             <RadioGroup value={appChoice} onChange={(e) => setAppChoice(e.target.value as AppChoice)}>
               <FormControlLabel
                 value="existing"
                 control={<Radio />}
-                label="Use existing application"
+                label={t('setup.app.existing')}
                 disabled={appsLoading || apps.length === 0}
               />
               {appChoice === 'existing' && (
@@ -524,18 +521,18 @@ export function SessionSetupPage() {
                   {appsLoading ? (
                     <Stack direction="row" spacing={1} alignItems="center">
                       <CircularProgress size={16} />
-                      <Typography variant="body2">Loading applications…</Typography>
+                      <Typography variant="body2">{t('setup.app.loading')}</Typography>
                     </Stack>
                   ) : apps.length === 0 ? (
                     <Typography variant="body2" color="text.secondary">
-                      No applications in this tenant yet. Pick "Create new".
+                      {t('setup.app.empty')}
                     </Typography>
                   ) : (
                     <FormControl size="small" fullWidth>
-                      <InputLabel>Application</InputLabel>
+                      <InputLabel>{t('setup.app.select.label')}</InputLabel>
                       <Select
                         value={selectedAppId}
-                        label="Application"
+                        label={t('setup.app.select.label')}
                         onChange={(e) => setSelectedAppId(e.target.value)}
                       >
                         {apps.map((a) => (
@@ -547,14 +544,14 @@ export function SessionSetupPage() {
                 </Box>
               )}
 
-              <FormControlLabel value="new" control={<Radio />} label="Create new application" />
+              <FormControlLabel value="new" control={<Radio />} label={t('setup.app.create')} />
               {appChoice === 'new' && (
                 <Box sx={{ ml: 4 }}>
                   <TextField
-                    label="Application name"
+                    label={t('setup.app.name.label')}
                     value={newAppName}
                     onChange={(e) => setNewAppName(e.target.value)}
-                    placeholder="Greenhouse sensors"
+                    placeholder={t('setup.app.name.placeholder')}
                     size="small"
                     fullWidth
                   />
@@ -566,13 +563,13 @@ export function SessionSetupPage() {
 
         <Paper sx={{ p: 3 }}>
           <Stack spacing={1.5}>
-            <Typography variant="h6">Device profile</Typography>
+            <Typography variant="h6">{t('setup.profile.title')}</Typography>
             <Typography variant="body2" color="text.secondary">
-              Leftenant will look for an existing profile named{' '}
+              {t('setup.profile.descr.prefix')}{' '}
               {previewProfileName
                 ? <code>{previewProfileName}</code>
-                : <em>(fill in the model section first)</em>}
-              {' '}and create one if it's missing.
+                : <em>{t('setup.profile.descr.placeholder')}</em>}
+              {' '}{t('setup.profile.descr.suffix')}
             </Typography>
           </Stack>
         </Paper>
@@ -582,14 +579,14 @@ export function SessionSetupPage() {
         <Divider />
 
         <Stack direction="row" spacing={2} justifyContent="space-between" alignItems="center">
-          <Button onClick={() => navigate('/')} disabled={working}>Cancel</Button>
+          <Button onClick={() => navigate('/')} disabled={working}>{t('setup.cancel')}</Button>
           <Button
             onClick={onStart}
             variant="contained"
             startIcon={working ? <CircularProgress size={16} /> : <PlayArrowIcon />}
             disabled={!canStart || working}
           >
-            {working ? 'Setting up…' : 'Start session'}
+            {working ? t('setup.start.working') : t('setup.start')}
           </Button>
         </Stack>
       </Stack>
