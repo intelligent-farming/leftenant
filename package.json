@@ -1,0 +1,60 @@
+{
+  "name": "@intelligent-farming/leftenant",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Browser-based field provisioning tool for ChirpStack. Onboard one or thousands of LoRaWAN devices of the same model — pick the model once, then loop: scan QR, submit, verify join, next.",
+  "license": "AGPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/intelligent-farming/leftenant.git"
+  },
+  "homepage": "https://github.com/intelligent-farming/leftenant#readme",
+  "bugs": {
+    "url": "https://github.com/intelligent-farming/leftenant/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "webpack serve --mode development",
+    "build": "webpack --mode production",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.13.0",
+    "@emotion/styled": "^11.13.0",
+    "@intelligent-farming/chirpstack-join-aggregator": "^0.1.0",
+    "@intelligent-farming/chirpstack-join-watcher": "^0.1.0",
+    "@intelligent-farming/lorawan-credential-format": "^0.1.0",
+    "@intelligent-farming/lorawan-qr-decoder": "^0.1.0",
+    "@intelligent-farming/oui-registry": "^0.1.0",
+    "@intelligent-farming/ttn-to-chirpstack": "^0.1.0",
+    "@mui/icons-material": "^6.1.0",
+    "@mui/material": "^6.1.0",
+    "buffer": "^6.0.3",
+    "events": "^3.3.0",
+    "mqtt": "^5.10.0",
+    "prismjs": "^1.29.0",
+    "process": "^0.11.10",
+    "qr-scanner": "^1.4.2",
+    "react": "^18.3.0",
+    "react-simple-code-editor": "^0.14.1",
+    "tesseract.js": "^5.1.0",
+    "react-dom": "^18.3.0",
+    "react-router-dom": "^6.26.0",
+    "zustand": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/prismjs": "^1.26.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "css-loader": "^7.1.0",
+    "html-webpack-plugin": "^5.6.0",
+    "style-loader": "^4.0.0",
+    "ts-loader": "^9.5.0",
+    "typescript": "^5.5.0",
+    "webpack": "^5.94.0",
+    "webpack-cli": "^5.1.0",
+    "webpack-dev-server": "^5.1.0"
+  }
+}
