@@ -15,7 +15,6 @@ import { useT } from '../i18n';
 
 import { AppShell } from '../components/AppShell';
 import { VendorLookup } from '../components/VendorLookup';
-import { JoinFeed } from '../components/JoinFeed';
 import { ModelPicker } from '../components/ModelPicker';
 import { DeviceManager } from '../components/DeviceManager';
 
@@ -90,9 +89,9 @@ export function HomePage() {
           </AccordionSummary>
           <AccordionDetails>
             {/*
-              Two-column grid on wide screens — the three diagnostic widgets
-              are independent and benefit from side-by-side comparison. On
-              narrow screens they stack vertically.
+              Two-column grid on wide screens — the diagnostic widgets are
+              independent and benefit from side-by-side comparison. On narrow
+              screens they stack vertically.
             */}
             <Grid container spacing={3}>
               <Grid item xs={12} lg={6}>
@@ -100,9 +99,6 @@ export function HomePage() {
               </Grid>
               <Grid item xs={12} lg={6}>
                 <ModelPicker />
-              </Grid>
-              <Grid item xs={12}>
-                <JoinFeed />
               </Grid>
             </Grid>
           </AccordionDetails>

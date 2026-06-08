@@ -29,6 +29,7 @@ import { parseQr } from '../lib/oui';
 import { recognizeText } from '../lib/ocr';
 import { beepError, beepScan, beepSuccess } from '../lib/audio';
 import { QrScanner, type QrScannerHandle } from '../components/QrScanner';
+import { JoinMonitor } from '../components/JoinMonitor';
 import { useSettings } from '../state/settings';
 import { useSession, type Submission, type SubmissionStatus } from '../state/session';
 import { i18n, useT } from '../i18n';
@@ -459,8 +460,9 @@ export function SessionPage() {
           <Stack direction="row" spacing={3} sx={{ flexWrap: 'wrap', gap: 2 }}>
             <StatChip label={t('session.stat.submitted')} value={stats.total} />
             <StatChip label={t('session.stat.inflight')} value={stats.pending} color={stats.pending > 0 ? 'warning' : undefined} />
-            <StatChip label={t('session.stat.created')} value={stats.created} color={stats.created > 0 ? 'success' : undefined} />
-            {/* Phase 6: re-enable the Verified stat when the verification listener lands. */}
+            <StatChip label={t('session.stat.created')} value={stats.created} color={stats.created > 0 ? 'info' : undefined} />
+            {/* Verified = provisioned AND observed joining the network (see JoinMonitor). */}
+            <StatChip label={t('session.status.verified')} value={stats.verified} color={stats.verified > 0 ? 'success' : undefined} />
             <StatChip label={t('session.stat.failed')} value={stats.failed} color={stats.failed > 0 ? 'error' : undefined} />
           </Stack>
         </Paper>
@@ -692,6 +694,10 @@ export function SessionPage() {
             </Grid>
           </Grid>
         </Box>
+
+        {/* Live join monitor — appears once devices are provisioned, watches
+            the MQTT feed for each one to actually join the network. */}
+        {submissions.some((s) => s.status === 'created' || s.status === 'verified') && <JoinMonitor />}
 
         {submissions.length > 0 && (
           <Paper sx={{ p: { xs: 2, md: 3 } }}>
