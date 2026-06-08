@@ -127,6 +127,10 @@ export function SessionPage() {
   queueRef.current = queue;
   // Monotonic source of per-row ids — see QueuedDevice.id.
   const queueIdRef = useRef(0);
+  // The last device scanned while in single mode. When a *second*, different
+  // device is scanned we flip to multi mode and seed the queue with both —
+  // see onScan. Cleared on submit and when entering multi mode.
+  const singleScanRef = useRef<ReturnType<typeof parseQr> | undefined>(undefined);
 
   if (!active) return null;
 
@@ -189,6 +193,8 @@ export function SessionPage() {
       setNwkKey('');
       setLastScanInfo(undefined);
       setLastOcrText(undefined);
+      // This device is added — the next scan starts a fresh "first scan".
+      singleScanRef.current = undefined;
       devEuiRef.current?.focus();
     } catch (err) {
       const msg = err instanceof ChirpStackApiError ? err.message
@@ -272,7 +278,27 @@ export function SessionPage() {
       enqueueScan(parsed);
       return;
     }
+    // Single mode: first scan fills the form. A second scan of a *different*
+    // device means the operator has a batch — flip to multi mode and seed the
+    // queue with both. Identity is the AppKey (the reliably-unique field),
+    // falling back to DevEUI when a QR carries no key.
+    const identity = (p: ReturnType<typeof parseQr>) => p.appKey ?? p.devEui;
+    const prev = singleScanRef.current;
+    if (prev && identity(prev) !== identity(parsed)) {
+      scanState.current.multiMode = true; // bridge the gap until re-render
+      setMultiMode(true);
+      setError(undefined);
+      enqueueScan(prev);
+      enqueueScan(parsed);
+      singleScanRef.current = undefined;
+      // The first device now lives in the queue — clear the single-entry form.
+      setDevEui('');
+      setAppKey('');
+      setNwkKey('');
+      return;
+    }
     applyParsedResult(parsed, i18n._('session.scan.context.decoded'));
+    singleScanRef.current = parsed;
   }, [applyParsedResult, enqueueScan]);
 
   // OCR capture: grab the current viewfinder frame, Tesseract → text, then
@@ -527,6 +553,7 @@ export function SessionPage() {
                             setBrandAlert(undefined);
                             setBulkResult(undefined);
                             setError(undefined);
+                            singleScanRef.current = undefined;
                           }}
                           size="small"
                           disabled={bulkRunning}
