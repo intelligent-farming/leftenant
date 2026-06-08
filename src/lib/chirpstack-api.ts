@@ -106,12 +106,35 @@ export interface CreateDeviceInput {
   keys?: { nwkKey: string; appKey?: string };
 }
 
+export interface DeviceSummary {
+  devEui: string;
+  name: string;
+  description: string;
+  deviceProfileId: string;
+  deviceProfileName: string;
+  lastSeenAt?: Date;
+}
+
+export interface ListDevicesInput {
+  applicationId: string;
+  limit?: number;
+  offset?: number;
+  search?: string;
+}
+
+export interface ListDevicesResult {
+  totalCount: number;
+  result: DeviceSummary[];
+}
+
 export interface ChirpStackClient {
   listApplications(input: ListApplicationsInput): Promise<ListApplicationsResult>;
   createApplication(input: CreateApplicationInput): Promise<{ id: string }>;
   listDeviceProfiles(input: ListDeviceProfilesInput): Promise<ListDeviceProfilesResult>;
   createDeviceProfile(input: CreateDeviceProfileInput): Promise<{ id: string }>;
   createDevice(input: CreateDeviceInput): Promise<void>;
+  listDevices(input: ListDevicesInput): Promise<ListDevicesResult>;
+  deleteDevice(devEui: string): Promise<void>;
   close(): void;
 }
 
@@ -332,6 +355,32 @@ export const createChirpStackClient = (settings: ChirpStackConnection): ChirpSta
       }
     },
 
+    listDevices: async (input) => {
+      type Row = {
+        devEui: string; name: string; description?: string;
+        deviceProfileId?: string; deviceProfileName?: string; lastSeenAt?: string;
+      };
+      const out = await request<{ totalCount: number; result: Row[] }>(
+        'GET', '/api/devices',
+        { query: { applicationId: input.applicationId, limit: input.limit ?? 100, offset: input.offset ?? 0, search: input.search } },
+      );
+      return {
+        totalCount: out.totalCount ?? 0,
+        result: (out.result ?? []).map((d) => ({
+          devEui: d.devEui,
+          name: d.name,
+          description: d.description ?? '',
+          deviceProfileId: d.deviceProfileId ?? '',
+          deviceProfileName: d.deviceProfileName ?? '',
+          lastSeenAt: d.lastSeenAt ? new Date(d.lastSeenAt) : undefined,
+        })),
+      };
+    },
+
+    deleteDevice: async (devEui) => {
+      await request<unknown>('DELETE', `/api/devices/${encodeURIComponent(devEui)}`);
+    },
+
     close: () => { /* nothing to clean up for fetch-based client */ },
   };
 };
@@ -368,6 +417,23 @@ export const listAllApplications = async (
   const limit = 100;
   for (;;) {
     const page = await client.listApplications({ tenantId, limit, offset });
+    out.push(...page.result);
+    if (out.length >= page.totalCount || page.result.length === 0) break;
+    offset += limit;
+  }
+  return out;
+};
+
+/** Page through every device in an application. */
+export const listAllDevices = async (
+  client: ChirpStackClient,
+  applicationId: string,
+): Promise<DeviceSummary[]> => {
+  const out: DeviceSummary[] = [];
+  let offset = 0;
+  const limit = 100;
+  for (;;) {
+    const page = await client.listDevices({ applicationId, limit, offset });
     out.push(...page.result);
     if (out.length >= page.totalCount || page.result.length === 0) break;
     offset += limit;

@@ -17,6 +17,7 @@ import { AppShell } from '../components/AppShell';
 import { VendorLookup } from '../components/VendorLookup';
 import { JoinFeed } from '../components/JoinFeed';
 import { ModelPicker } from '../components/ModelPicker';
+import { DeviceManager } from '../components/DeviceManager';
 
 export function HomePage() {
   const settings = useSettings();
@@ -77,6 +78,8 @@ export function HomePage() {
             </Stack>
           </Paper>
         )}
+
+        <DeviceManager />
 
         <Accordion variant="outlined" disableGutters>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
