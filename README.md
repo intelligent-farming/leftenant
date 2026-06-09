@@ -81,8 +81,3 @@ src/
 - Live join monitor — polls ChirpStack's REST API for each provisioned
   device's first contact and flips its row from "Waiting" to "Joined",
   promoting the submission from "Created" to "Verified"
-
-## Roadmap
-
-- CSV export of session history for handing off to customers or filing with
-  deployment records.

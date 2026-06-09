@@ -27,6 +27,7 @@ import {
 } from '../lib/chirpstack-api';
 import { parseQr } from '../lib/oui';
 import { recognizeText } from '../lib/ocr';
+import { lookupDeviceHint, type DeviceIdLocation } from '../lib/device-hints';
 import { beepError, beepScan, beepSuccess } from '../lib/audio';
 import { QrScanner, type QrScannerHandle } from '../components/QrScanner';
 import { JoinMonitor } from '../components/JoinMonitor';
@@ -60,6 +61,17 @@ const fmtElapsed = (startIso: string): string => {
   const m = Math.floor((s % 3600) / 60);
   const sec = s % 60;
   return [h, m, sec].map((n) => n.toString().padStart(2, '0')).join(':');
+};
+
+// Maps a curated DevEUI-location hint to its message key. Models without a
+// curated hint use the generic fallback (see the scan panel).
+const HINT_MESSAGE_KEY: Record<
+  DeviceIdLocation,
+  'session.scan.hint.qr' | 'session.scan.hint.label' | 'session.scan.hint.leaflet'
+> = {
+  qr: 'session.scan.hint.qr',
+  label: 'session.scan.hint.label',
+  leaflet: 'session.scan.hint.leaflet',
 };
 
 export function SessionPage() {
@@ -115,6 +127,10 @@ export function SessionPage() {
   // (data path); both must be supplied. Detect from the active session's
   // MAC version captured at session-setup time.
   const needsSeparateNwkKey = /^LORAWAN_1_1/.test(active?.macVersion ?? '');
+  // "Where to find the DevEUI" hint for the scan panel — curated per vendor,
+  // generic fallback otherwise.
+  const deviceHint = lookupDeviceHint(active?.vendor, active?.device);
+  const scanHintKey = deviceHint ? HINT_MESSAGE_KEY[deviceHint.location] : 'session.scan.hint.generic';
   // Latest values for the submit callback — avoids stale-closure issues
   // when the QR scanner fires while the React tree is mid-render.
   const latest = useRef({ devEui, joinEui, appKey, nwkKey, submitting });
@@ -273,6 +289,20 @@ export function SessionPage() {
     catch {
       const preview = `${text.slice(0, 50)}${text.length > 50 ? '…' : ''}`;
       setLastScanInfo(i18n._('session.scan.no_decode', { preview }));
+      if (scanState.current.audioEnabled) beepError();
+      return;
+    }
+    // The QR decoded, but it isn't a LoRaWAN credential code. Budget hardware
+    // commonly prints a QR that carries only a serial or a URL — TR005 can't
+    // be assumed — and the DevEUI lives on the label or a leaflet instead.
+    // Without a valid DevEUI there's nothing to provision, so prompt the
+    // operator to type it rather than filling the form with whatever the
+    // hex-scan strategy happened to pick out of the string.
+    if (!isDevEui(parsed.devEui)) {
+      const preview = `${text.slice(0, 50)}${text.length > 50 ? '…' : ''}`;
+      setLastScanInfo(i18n._('session.scan.no_credentials', { preview }));
+      if (!scanState.current.multiMode) devEuiRef.current?.focus();
+      if (scanState.current.audioEnabled) beepError();
       return;
     }
     if (scanState.current.multiMode) {
@@ -318,7 +348,16 @@ export function SessionPage() {
     setLastScanInfo(i18n._('session.scan.ocr.reading'));
     setLastOcrText(undefined);
     try {
-      const { text, rawText, confidence } = await recognizeText(frame);
+      // Credential labels are often printed sideways along the device edge
+      // (e.g. Makerfabs), so sweep orientations and stop at the first that
+      // yields a valid DevEUI. Upright labels accept on the first (0°) pass.
+      const { text, rawText, confidence } = await recognizeText(frame, {
+        orientations: [0, 90, 270, 180],
+        accept: (r) => {
+          try { return isDevEui(parseQr(r.text).devEui); }
+          catch { return false; }
+        },
+      });
       setLastOcrText(rawText);
       let parsed;
       try { parsed = parseQr(text); }
@@ -509,6 +548,10 @@ export function SessionPage() {
                     onScan={onScan}
                     active={scannerActive && !submitting && !ocrBusy && !bulkRunning}
                   />
+
+                  <Typography variant="caption" color="text.secondary">
+                    {t(scanHintKey)}
+                  </Typography>
 
                   {/* OCR fallback is single-device only — multi mode is QR-only. */}
                   {!multiMode && (
