@@ -62,10 +62,13 @@ export const useSettings = create<SettingsState>()(
       name: 'leftenant.settings',
       storage: createJSONStorage(() => localStorage),
       // Bump on default-value changes that should override existing persisted
-      // state. v2 = ChirpStack URL default switched from :8080 → :8090. Older
-      // persisted state is discarded on first load and the user re-runs the
-      // wizard with the right defaults.
-      version: 2,
+      // state. v2 = ChirpStack URL default switched from :8080 → :8090. v3 =
+      // runtime-config hydration (src/state/runtime-config.ts) added; discard
+      // stale state so a re-provisioned bench re-seeds from /config.json rather
+      // than keeping an old API key. Older persisted state is discarded on first
+      // load and the user re-runs the wizard (or hydration re-seeds) with the
+      // right defaults.
+      version: 3,
     },
   ),
 );
