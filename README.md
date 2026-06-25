@@ -76,6 +76,10 @@ src/
 
 - Connection wizard with a live REST connection probe
 - Session setup (catalog / manual / existing-profile modes)
+- Catalog codec resolution — a normalized codec from
+  `@intelligent-farming/lorawan-codec-normalization` is used when one exists for
+  the device, falling back to the upstream `ttn-to-chirpstack` codec otherwise.
+  The resolved codec is shown in an editable field before the session starts.
 - Camera-based QR scanner with vendor identification
 - Tesseract OCR fallback for label-only devices
 - Live join monitor — polls ChirpStack's REST API for each provisioned

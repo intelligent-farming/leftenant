@@ -25,6 +25,7 @@
     "@emotion/styled": "^11.13.0",
     "@intelligent-farming/chirpstack-join-aggregator": "^0.1.0",
     "@intelligent-farming/chirpstack-join-watcher": "^0.1.0",
+    "@intelligent-farming/lorawan-codec-normalization": "^0.1.0",
     "@intelligent-farming/lorawan-credential-format": "^0.1.0",
     "@intelligent-farming/lorawan-qr-decoder": "^0.1.0",
     "@intelligent-farming/oui-registry": "^0.1.0",

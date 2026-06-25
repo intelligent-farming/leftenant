@@ -10,6 +10,7 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import { AppShell } from '../components/AppShell';
 
 import * as ttn from '@intelligent-farming/ttn-to-chirpstack/browser';
+import { normalizedCodecFor, normalizedProvidesFor } from '../lib/codec-normalization';
 import { CodeEditor } from '../components/CodeEditor';
 import {
   createChirpStackClient, listAllApplications, listAllDeviceProfiles,
@@ -74,9 +75,14 @@ export function SessionSetupPage() {
   const [mode, setMode] = useState<Mode>('catalog');
   const [region, setRegion] = useState<string>(ttn.Region.US915);
 
-  // Catalog mode state.
+  // Catalog mode state. Once a model is picked we resolve its codec —
+  // normalized codec preferred, upstream TTN codec as fallback — into an
+  // editable buffer the operator can review or tweak before starting.
   const [modelQuery, setModelQuery] = useState('');
   const [model, setModel] = useState<ttn.SearchHit | null>(null);
+  const [catalogCodec, setCatalogCodec] = useState('');
+  const [catalogCodecSource, setCatalogCodecSource] = useState<'normalized' | 'ttn' | 'none'>('none');
+  const [catalogProvides, setCatalogProvides] = useState<string[]>([]);
 
   // Manual mode state.
   const [manualName, setManualName] = useState('');
@@ -164,6 +170,42 @@ export function SessionSetupPage() {
     [modelQuery],
   );
 
+  // Resolve the catalog codec when the picked model changes. Priority: a
+  // normalized codec from lorawan-codec-normalization, else the upstream TTN
+  // codec, else none. Keyed on vendor/device only — codecs are region-
+  // independent, so changing the region must not discard operator edits.
+  useEffect(() => {
+    if (!model) {
+      setCatalogCodec('');
+      setCatalogCodecSource('none');
+      setCatalogProvides([]);
+      return;
+    }
+    const normalized = normalizedCodecFor(model.vendor, model.device);
+    if (normalized) {
+      setCatalogCodec(normalized);
+      setCatalogCodecSource('normalized');
+      setCatalogProvides(normalizedProvidesFor(model.vendor, model.device) ?? []);
+      return;
+    }
+    // Fall back to the upstream TTN codec. The script is region-independent, so
+    // any region the device supports yields the same codec text.
+    setCatalogProvides([]);
+    let ttnCodec = '';
+    try {
+      const probeRegion = (model.regions.includes(region) ? region : model.regions[0]) as ttn.Region;
+      const v4 = ttn.toChirpStack(model.vendor, model.device, probeRegion);
+      if (v4.payloadCodecRuntime === ttn.PayloadCodecRuntime.JS && v4.payloadCodecScript) {
+        ttnCodec = v4.payloadCodecScript;
+      }
+    } catch {
+      ttnCodec = '';
+    }
+    setCatalogCodec(ttnCodec);
+    setCatalogCodecSource(ttnCodec ? 'ttn' : 'none');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [model?.vendor, model?.device]);
+
   const regionRow = REGIONS.find((r) => r.ttn === region) ?? REGIONS[0];
   const modelRegionMismatch = mode === 'catalog' && model && !model.regions.includes(region);
 
@@ -235,8 +277,13 @@ export function SessionSetupPage() {
             supportsClassC: v4.supportsClassC,
             classBTimeout: v4.classBTimeout,
             classCTimeout: v4.classCTimeout,
-            payloadCodecRuntime: v4.payloadCodecRuntime,
-            payloadCodecScript: v4.payloadCodecScript,
+            // Codec comes from the editable buffer (normalized codec preferred,
+            // TTN as fallback — see the resolution effect), not from v4 — the
+            // operator may have reviewed or edited it before starting.
+            payloadCodecRuntime: catalogCodec.trim()
+              ? ttn.PayloadCodecRuntime.JS
+              : ttn.PayloadCodecRuntime.NONE,
+            payloadCodecScript: catalogCodec.trim() ? catalogCodec : undefined,
             name: v4.name,
             description: v4.description,
           };
@@ -376,6 +423,42 @@ export function SessionSetupPage() {
                   <Alert severity="warning">
                     {t('setup.region_mismatch', { name: model!.name, region, regions: model!.regions.join(', ') })}
                   </Alert>
+                )}
+                {model && (
+                  <Stack spacing={1}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      {catalogCodecSource === 'normalized' && (
+                        <Chip size="small" color="secondary" label={t('setup.catalog.codec.source.normalized')} />
+                      )}
+                      {catalogCodecSource === 'ttn' && (
+                        <Chip size="small" variant="outlined" label={t('setup.catalog.codec.source.ttn')} />
+                      )}
+                      {catalogCodecSource === 'none' && (
+                        <Chip size="small" variant="outlined" label={t('setup.catalog.codec.source.none')} />
+                      )}
+                    </Stack>
+                    {catalogCodecSource === 'normalized' && catalogProvides.length > 0 && (
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          {t('setup.catalog.provides.label')}
+                        </Typography>
+                        <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                          {catalogProvides.map((path) => (
+                            <Chip key={path} size="small" variant="outlined" label={path} sx={{ fontFamily: 'monospace' }} />
+                          ))}
+                        </Stack>
+                      </Box>
+                    )}
+                    <CodeEditor
+                      label={t('setup.catalog.codec.label')}
+                      value={catalogCodec}
+                      onChange={setCatalogCodec}
+                      minRows={4}
+                      maxRows={16}
+                      placeholder={t('setup.manual.codec.placeholder')}
+                      helperText={t(`setup.catalog.codec.helper.${catalogCodecSource}`)}
+                    />
+                  </Stack>
                 )}
               </Stack>
             )}

@@ -68,6 +68,14 @@ module.exports = (_env, argv) => {
           use: ['style-loader', 'css-loader'],
         },
         {
+          // Normalized codecs shipped by @intelligent-farming/lorawan-codec-
+          // normalization under codecs/<vendor>/<device>/codec.js are bundled
+          // as raw source strings (not executed) — they get installed verbatim
+          // into a ChirpStack device profile. See lib/codec-normalization.ts.
+          test: /[\\/]codecs[\\/].+[\\/]codec\.js$/,
+          type: 'asset/source',
+        },
+        {
           test: /\.(png|jpg|jpeg|gif|svg|ico|woff2?|eot|ttf)$/,
           type: 'asset/resource',
         },
@@ -109,15 +117,17 @@ module.exports = (_env, argv) => {
       },
     },
     performance: {
-      // Two data bundles dominate the entrypoint and are intentional:
-      //   - IEEE OUI registry      ~1.8 MB  (offline vendor identification)
-      //   - TTN device catalog     ~3.8 MB  (curated subset of vendors)
-      // Total payload ~7 MB raw / ~1.5 MB gzipped. Acceptable for a
+      // Three data bundles dominate the entrypoint and are intentional:
+      //   - IEEE OUI registry        ~1.8 MB  (offline vendor identification)
+      //   - TTN device catalog       ~3.8 MB  (curated subset of vendors)
+      //   - normalized codec catalog ~2.6 MB  (codec.js + device.json for every
+      //                                        device in lorawan-codec-normalization)
+      // Total payload ~10 MB raw / ~2 MB gzipped. Acceptable for a
       // local-network tool. Bump the budget so warnings don't drown out
       // anything genuinely problematic.
       hints: isProd ? 'warning' : false,
-      maxAssetSize: 8 * 1024 * 1024,
-      maxEntrypointSize: 8 * 1024 * 1024,
+      maxAssetSize: 12 * 1024 * 1024,
+      maxEntrypointSize: 12 * 1024 * 1024,
     },
   };
 };
