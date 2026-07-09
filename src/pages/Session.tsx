@@ -104,6 +104,11 @@ export function SessionPage() {
   const [joinEui, setJoinEui] = useState('');
   const [appKey, setAppKey] = useState('');
   const [nwkKey, setNwkKey] = useState('');
+  // Device name defaults to the generated "<model> (<DevEUI>)" but is editable.
+  // `nameEdited` guards the autofill below so a custom name isn't clobbered
+  // when the DevEUI later changes (e.g. a re-scan).
+  const [deviceName, setDeviceName] = useState('');
+  const [nameEdited, setNameEdited] = useState(false);
   const [showKey, setShowKey] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | undefined>();
@@ -133,8 +138,8 @@ export function SessionPage() {
   const scanHintKey = deviceHint ? HINT_MESSAGE_KEY[deviceHint.location] : 'session.scan.hint.generic';
   // Latest values for the submit callback — avoids stale-closure issues
   // when the QR scanner fires while the React tree is mid-render.
-  const latest = useRef({ devEui, joinEui, appKey, nwkKey, submitting });
-  latest.current = { devEui, joinEui, appKey, nwkKey, submitting };
+  const latest = useRef({ devEui, joinEui, appKey, nwkKey, deviceName, submitting });
+  latest.current = { devEui, joinEui, appKey, nwkKey, deviceName, submitting };
   // The QrScanner captures its `onScan` once at mount (see QrScanner.tsx), so
   // the scan handler can't close over live state. Mirror everything the scan
   // path needs into refs and read them at call time.
@@ -149,6 +154,13 @@ export function SessionPage() {
   // see onScan. Cleared on submit and when entering multi mode.
   const singleScanRef = useRef<ReturnType<typeof parseQr> | undefined>(undefined);
 
+  // Keep the device name in sync with the generated default until the operator
+  // types their own name — matches the "<modelName> (<DevEUI>)" ChirpStack uses.
+  useEffect(() => {
+    if (!active || nameEdited) return;
+    setDeviceName(isDevEui(devEui) ? `${active.modelName} (${parseDevEui(devEui)})` : active.modelName);
+  }, [active, devEui, nameEdited]);
+
   if (!active) return null;
 
   const devEuiValid = !devEui || isDevEui(devEui);
@@ -162,12 +174,13 @@ export function SessionPage() {
     && (!needsSeparateNwkKey || isAppKey(nwkKey))
     && !submitting;
 
-  const submit = useCallback(async (overrides?: { devEui?: string; joinEui?: string; appKey?: string; nwkKey?: string }) => {
+  const submit = useCallback(async (overrides?: { devEui?: string; joinEui?: string; appKey?: string; nwkKey?: string; name?: string }) => {
     const cur = latest.current;
     const dRaw = overrides?.devEui ?? cur.devEui;
     const jRaw = overrides?.joinEui ?? cur.joinEui;
     const kRaw = overrides?.appKey ?? cur.appKey;
     const nRaw = overrides?.nwkKey ?? cur.nwkKey;
+    const nameRaw = overrides?.name ?? cur.deviceName;
     if (cur.submitting) return;
     if (!isDevEui(dRaw) || !isJoinEui(jRaw) || !isAppKey(kRaw)) return;
     if (needsSeparateNwkKey && !isAppKey(nRaw)) return;
@@ -196,7 +209,8 @@ export function SessionPage() {
         : { nwkKey: normalized.appKey };
       await client.createDevice({
         devEui: normalized.devEui,
-        name: `${active.modelName} (${normalized.devEui})`,
+        // Operator-supplied name if present, else the generated default.
+        name: nameRaw.trim() || `${active.modelName} (${normalized.devEui})`,
         applicationId: active.applicationId,
         deviceProfileId: active.deviceProfileId,
         joinEui: normalized.joinEui,
@@ -208,6 +222,9 @@ export function SessionPage() {
       setDevEui('');
       setAppKey('');
       setNwkKey('');
+      // Re-arm autofill so the next device gets a fresh generated name.
+      setDeviceName('');
+      setNameEdited(false);
       setLastScanInfo(undefined);
       setLastOcrText(undefined);
       // This device is added — the next scan starts a fresh "first scan".
@@ -326,6 +343,8 @@ export function SessionPage() {
       setDevEui('');
       setAppKey('');
       setNwkKey('');
+      setDeviceName('');
+      setNameEdited(false);
       return;
     }
     applyParsedResult(parsed, i18n._('session.scan.context.decoded'));
@@ -660,6 +679,14 @@ export function SessionPage() {
                           }}
                         />
                       )}
+                      <TextField
+                        label={t('session.form.name.label')}
+                        value={deviceName}
+                        onChange={(e) => { setDeviceName(e.target.value); setNameEdited(true); }}
+                        helperText={t('session.form.name.helper')}
+                        autoComplete="off"
+                        spellCheck={false}
+                      />
                       {error && <Alert severity="error">{error}</Alert>}
                     </>
                   ) : (

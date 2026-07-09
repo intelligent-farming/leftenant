@@ -208,6 +208,8 @@ export const messages: typeof en = {
   'session.form.nwkKey.label': 'NwkKey (clé racine réseau)',
   'session.form.nwkKey.error': '32 caractères hexadécimaux requis',
   'session.form.nwkKey.helper': 'Requise pour les appareils LoRaWAN 1.1.x',
+  'session.form.name.label': 'Nom de l’appareil',
+  'session.form.name.helper': 'Généré automatiquement à partir du modèle et du DevEUI — modifiable pour un nom personnalisé',
   'session.form.submit.button': 'Ajouter l\'appareil',
   'session.form.submit.working': 'Ajout…',
   'session.multi.checkbox': 'Plusieurs appareils',

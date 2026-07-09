@@ -1,6 +1,6 @@
 {
   "name": "@intelligent-farming/leftenant",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Browser-based field provisioning tool for ChirpStack. Onboard one or thousands of LoRaWAN devices of the same model — pick the model once, then loop: scan QR, submit, verify join, next.",
   "license": "AGPL-3.0-or-later",
