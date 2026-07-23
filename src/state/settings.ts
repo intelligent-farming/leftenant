@@ -19,6 +19,14 @@ export interface ConnectionSettings {
   apiKey: string;
   /** Mosquitto WSS endpoint, e.g. `ws://chirpstack.local:9001`. */
   mqttUrl: string;
+  /**
+   * ChirpStack Gateway Bridge host the gateway forwards to — the `server_address`
+   * baked into rendered gateway configs. Distinct from {@link chirpStackUrl}: the
+   * Gateway Bridge listens for the Semtech UDP (:1700) / Basics Station (:3001)
+   * backends, NOT the REST API (:8090). Often the same host, different port; do
+   * not assume. Just the host (no scheme/port), e.g. `chirpstack.local`.
+   */
+  gatewayBridgeHost?: string;
   /** Optional MQTT username/password for non-anonymous brokers. */
   mqttUsername?: string;
   mqttPassword?: string;

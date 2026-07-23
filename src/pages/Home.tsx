@@ -6,6 +6,7 @@ import {
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import LinearScaleIcon from '@mui/icons-material/LinearScale';
+import RouterIcon from '@mui/icons-material/Router';
 // Note: the old "Edit connection" button now lives in the AppBar settings
 // dropdown (see SettingsMenu) — reachable from every page, not just Home.
 
@@ -77,6 +78,22 @@ export function HomePage() {
             </Stack>
           </Paper>
         )}
+
+        <Paper sx={{ p: { xs: 3, md: 4 } }}>
+          <Stack spacing={2} alignItems="flex-start">
+            <Typography variant="h6">{t('gateway.home.title')}</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {t('gateway.home.body')}
+            </Typography>
+            <Button
+              variant="outlined"
+              onClick={() => navigate('/gateway')}
+              startIcon={<RouterIcon />}
+            >
+              {t('gateway.home.button')}
+            </Button>
+          </Stack>
+        </Paper>
 
         <DeviceManager />
 

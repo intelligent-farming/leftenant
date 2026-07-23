@@ -16,6 +16,13 @@ export interface RuntimeConfig {
   mqttUsername?: string;
   mqttPassword?: string;
   tenantId?: string;
+  /**
+   * ChirpStack Gateway Bridge host the gateway forwards to — resolved
+   * server-side by docker-entrypoint.sh (the browser can't see the host's LAN
+   * IP). Seeded independently of the API key so even an otherwise unconfigured
+   * deployment gives the Add-Gateway wizard a correct default.
+   */
+  gatewayBridgeHost?: string;
 }
 
 /**
@@ -38,9 +45,17 @@ export async function hydrateRuntimeConfig(): Promise<void> {
     return;
   }
 
+  const current = useSettings.getState();
+
+  // Seed the Gateway Bridge host regardless of whether a full ChirpStack config
+  // is present — it's useful to the Add-Gateway wizard on its own, and the
+  // operator can still override it. Don't clobber a value they already set.
+  if (config.gatewayBridgeHost && !current.gatewayBridgeHost) {
+    current.setSettings({ gatewayBridgeHost: config.gatewayBridgeHost });
+  }
+
   if (!config.apiKey || !config.tenantId) return;
 
-  const current = useSettings.getState();
   current.setSettings({
     chirpStackUrl: config.chirpStackUrl ?? current.chirpStackUrl,
     apiKey: config.apiKey,
