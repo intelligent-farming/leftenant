@@ -127,6 +127,47 @@ export interface ListDevicesResult {
   result: DeviceSummary[];
 }
 
+export interface GatewayLocation {
+  latitude?: number;
+  longitude?: number;
+  altitude?: number;
+}
+
+export interface CreateGatewayInput {
+  /** 16-hex Gateway EUI. Normalized to lowercase for ChirpStack's gatewayId. */
+  gatewayId: string;
+  name: string;
+  tenantId: string;
+  description?: string;
+  /** Expected stats interval in seconds (ChirpStack marks the gateway offline past it). */
+  statsInterval?: number;
+  location?: GatewayLocation;
+  tags?: Record<string, string>;
+}
+
+export interface GatewaySummary {
+  gatewayId: string;
+  name: string;
+  description: string;
+  location?: GatewayLocation;
+  createdAt?: Date;
+  updatedAt?: Date;
+  /** Set the moment ChirpStack first hears the gateway — the "it's online" signal. */
+  lastSeenAt?: Date;
+}
+
+export interface ListGatewaysInput {
+  tenantId: string;
+  limit?: number;
+  offset?: number;
+  search?: string;
+}
+
+export interface ListGatewaysResult {
+  totalCount: number;
+  result: GatewaySummary[];
+}
+
 export interface ChirpStackClient {
   listApplications(input: ListApplicationsInput): Promise<ListApplicationsResult>;
   createApplication(input: CreateApplicationInput): Promise<{ id: string }>;
@@ -135,8 +176,16 @@ export interface ChirpStackClient {
   createDevice(input: CreateDeviceInput): Promise<void>;
   listDevices(input: ListDevicesInput): Promise<ListDevicesResult>;
   deleteDevice(devEui: string): Promise<void>;
+  createGateway(input: CreateGatewayInput): Promise<void>;
+  getGateway(gatewayId: string): Promise<GatewaySummary | null>;
+  listGateways(input: ListGatewaysInput): Promise<ListGatewaysResult>;
+  deleteGateway(gatewayId: string): Promise<void>;
   close(): void;
 }
+
+/** Normalize a Gateway EUI to the lowercase 16-hex form ChirpStack expects. */
+export const normalizeGatewayId = (eui: string): string =>
+  eui.replace(/[^0-9A-Fa-f]/g, '').toLowerCase();
 
 /** Thrown when the REST gateway returns a non-2xx response. */
 export class ChirpStackApiError extends Error {
@@ -381,6 +430,76 @@ export const createChirpStackClient = (settings: ChirpStackConnection): ChirpSta
       await request<unknown>('DELETE', `/api/devices/${encodeURIComponent(devEui)}`);
     },
 
+    createGateway: async (input) => {
+      await request<unknown>('POST', '/api/gateways', {
+        body: {
+          gateway: {
+            gatewayId: normalizeGatewayId(input.gatewayId),
+            name: input.name,
+            description: input.description ?? '',
+            tenantId: input.tenantId,
+            statsInterval: input.statsInterval ?? 30,
+            ...(input.location ? { location: input.location } : {}),
+            tags: { source: 'leftenant', ...(input.tags ?? {}) },
+            metadata: {},
+          },
+        },
+      });
+    },
+
+    getGateway: async (gatewayId) => {
+      const id = normalizeGatewayId(gatewayId);
+      type Row = {
+        gateway?: { gatewayId: string; name: string; description?: string; location?: GatewayLocation };
+        createdAt?: string; updatedAt?: string; lastSeenAt?: string;
+      };
+      let out: Row;
+      try {
+        out = await request<Row>('GET', `/api/gateways/${encodeURIComponent(id)}`);
+      } catch (err) {
+        if (err instanceof ChirpStackApiError && err.code === 404) return null;
+        throw err;
+      }
+      const g = out.gateway;
+      if (!g) return null;
+      return {
+        gatewayId: g.gatewayId,
+        name: g.name,
+        description: g.description ?? '',
+        location: g.location,
+        createdAt: out.createdAt ? new Date(out.createdAt) : undefined,
+        updatedAt: out.updatedAt ? new Date(out.updatedAt) : undefined,
+        lastSeenAt: out.lastSeenAt ? new Date(out.lastSeenAt) : undefined,
+      };
+    },
+
+    listGateways: async (input) => {
+      type Row = {
+        gatewayId: string; name: string; description?: string;
+        location?: GatewayLocation; createdAt?: string; updatedAt?: string; lastSeenAt?: string;
+      };
+      const out = await request<{ totalCount: number; result: Row[] }>(
+        'GET', '/api/gateways',
+        { query: { tenantId: input.tenantId, limit: input.limit ?? 100, offset: input.offset ?? 0, search: input.search } },
+      );
+      return {
+        totalCount: out.totalCount ?? 0,
+        result: (out.result ?? []).map((g) => ({
+          gatewayId: g.gatewayId,
+          name: g.name,
+          description: g.description ?? '',
+          location: g.location,
+          createdAt: g.createdAt ? new Date(g.createdAt) : undefined,
+          updatedAt: g.updatedAt ? new Date(g.updatedAt) : undefined,
+          lastSeenAt: g.lastSeenAt ? new Date(g.lastSeenAt) : undefined,
+        })),
+      };
+    },
+
+    deleteGateway: async (gatewayId) => {
+      await request<unknown>('DELETE', `/api/gateways/${encodeURIComponent(normalizeGatewayId(gatewayId))}`);
+    },
+
     close: () => { /* nothing to clean up for fetch-based client */ },
   };
 };
@@ -434,6 +553,23 @@ export const listAllDevices = async (
   const limit = 100;
   for (;;) {
     const page = await client.listDevices({ applicationId, limit, offset });
+    out.push(...page.result);
+    if (out.length >= page.totalCount || page.result.length === 0) break;
+    offset += limit;
+  }
+  return out;
+};
+
+/** Page through every gateway in a tenant. */
+export const listAllGateways = async (
+  client: ChirpStackClient,
+  tenantId: string,
+): Promise<GatewaySummary[]> => {
+  const out: GatewaySummary[] = [];
+  let offset = 0;
+  const limit = 100;
+  for (;;) {
+    const page = await client.listGateways({ tenantId, limit, offset });
     out.push(...page.result);
     if (out.length >= page.totalCount || page.result.length === 0) break;
     offset += limit;

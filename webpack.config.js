@@ -76,6 +76,21 @@ module.exports = (_env, argv) => {
           type: 'asset/source',
         },
         {
+          // Gateway config templates shipped by @intelligent-farming/lorawan-
+          // gateway-catalog under gateways/<vendor>/<model>/config/*.tmpl.* are
+          // bundled as raw source strings — they contain {{TOKENS}}, so the
+          // Semtech UDP *.tmpl.json ones are NOT valid JSON and must bypass
+          // webpack's built-in JSON parsing. See lib/gateway-catalog.ts.
+          test: /[\\/]gateways[\\/].+[\\/]config[\\/].+\.tmpl\.(json|conf)$/,
+          type: 'asset/source',
+        },
+        {
+          // Gateway walkthroughs (markdown) are bundled as raw text and shown
+          // as guided steps in the Add-Gateway wizard.
+          test: /[\\/]gateways[\\/].+[\\/]walkthrough\.md$/,
+          type: 'asset/source',
+        },
+        {
           test: /\.(png|jpg|jpeg|gif|svg|ico|woff2?|eot|ttf)$/,
           type: 'asset/resource',
         },

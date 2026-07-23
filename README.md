@@ -85,3 +85,42 @@ src/
 - Live join monitor — polls ChirpStack's REST API for each provisioned
   device's first contact and flips its row from "Waiting" to "Joined",
   promoting the submission from "Created" to "Verified"
+- Add-Gateway wizard — connect a physical LoRaWAN gateway to ChirpStack (scan
+  the Gateway EUI, pick the model, get a paste-ready packet-forwarder config,
+  register the gateway, watch it come online). See [Add a gateway](#add-a-gateway).
+
+## Add a gateway
+
+Route `/gateway` (linked from Home) runs a four-step wizard that connects a
+physical LoRaWAN gateway to ChirpStack. It uses
+[`@intelligent-farming/lorawan-gateway-catalog`](https://github.com/intelligent-farming/lorawan-gateway-catalog)
+for the per-model profiles (admin facts, packet-forwarder config templates,
+walkthroughs) and identifies the vendor from the scanned EUI via
+`@intelligent-farming/oui-registry`.
+
+The wizard does two independent things:
+
+1. **Points the gateway at ChirpStack (generate + guide).** It renders the
+   connection settings and a paste-ready `global_conf.json` / `station.conf` from
+   the model's template, with your Gateway Bridge host, ports, EUI, and region
+   channel plan filled in. Leftenant **cannot push this into the gateway** — the
+   box is on the LAN behind a vendor-specific admin UI/SSH — so it shows the
+   values and the model's walkthrough for you to apply. How you apply them
+   depends on the gateway: a **form** UI (Dragino, Milesight, RAK WisGateOS —
+   enter Server Address + ports), a **JSON-paste** UI (MultiTech mPower — paste
+   the config), or a **file/SSH** flow (Kerlink, etc. — write the config to the
+   forwarder path).
+2. **Registers the gateway in ChirpStack.** "Add to ChirpStack" calls
+   `POST /api/gateways` for the configured tenant, then the wizard polls
+   `GET /api/gateways/{id}` for `lastSeenAt` and flips the status to online once
+   the gateway reports.
+
+### Gateway Bridge host
+
+The config's server address is the ChirpStack **Gateway Bridge** host (Semtech
+UDP `:1700` / Basics Station `:3001`) — a **different** endpoint from the REST
+API (`:8090`) Leftenant otherwise uses, and a gateway can never reach
+`localhost`. It is resolved, in order, from: the `gatewayBridgeHost` setting
+(seeded from `/config.json` — the `intelligent-farming-stack` setup detects the
+host's LAN IP and writes it there), then `window.location.hostname`, then the
+ChirpStack URL host. The field is editable in the wizard.

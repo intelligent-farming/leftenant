@@ -10,6 +10,7 @@ import { SettingsPage } from './pages/Settings';
 import { HomePage } from './pages/Home';
 import { SessionSetupPage } from './pages/SessionSetup';
 import { SessionPage } from './pages/Session';
+import { GatewayWizardPage } from './pages/GatewayWizard';
 
 export function App() {
   // Three sources resolve to the active palette mode:
@@ -33,6 +34,7 @@ export function App() {
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/session/new" element={<Gated><SessionSetupPage /></Gated>} />
             <Route path="/session" element={<Gated><SessionPage /></Gated>} />
+            <Route path="/gateway" element={<Gated><GatewayWizardPage /></Gated>} />
             <Route path="/" element={<Gated><HomePage /></Gated>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
