@@ -16,6 +16,7 @@ import ErrorIcon from '@mui/icons-material/Error';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import TextFieldsIcon from '@mui/icons-material/TextFields';
+import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 
 import {
@@ -27,6 +28,7 @@ import {
 } from '../lib/chirpstack-api';
 import { parseQr } from '../lib/oui';
 import { recognizeText } from '../lib/ocr';
+import { decodeQrFromImage, imageFileToCanvas } from '../lib/photo';
 import { lookupDeviceHint, type DeviceIdLocation } from '../lib/device-hints';
 import { beepError, beepScan, beepSuccess } from '../lib/audio';
 import { QrScanner, type QrScannerHandle } from '../components/QrScanner';
@@ -351,26 +353,19 @@ export function SessionPage() {
     singleScanRef.current = parsed;
   }, [applyParsedResult, enqueueScan]);
 
-  // OCR capture: grab the current viewfinder frame, Tesseract → text, then
-  // hand off to parseQr. The QR decoder's hex-scan strategy already extracts
-  // EUIs / keys from arbitrary token-soup, so we get vendor identification
-  // and the same field-population logic for free.
-  const onCaptureText = useCallback(async () => {
-    if (ocrBusy) return;
-    const scanner = scannerRef.current;
-    const frame = scanner?.captureFrame();
-    if (!frame) {
-      setLastScanInfo(i18n._('session.scan.camera_not_ready'));
-      return;
-    }
-    setOcrBusy(true);
+  // OCR: Tesseract → text, then hand off to parseQr. The QR decoder's
+  // hex-scan strategy already extracts EUIs / keys from arbitrary token-soup,
+  // so we get vendor identification and the same field-population logic for
+  // free. Shared by the live-frame capture and the uploaded-photo path;
+  // callers own the busy flag.
+  const runOcr = useCallback(async (source: HTMLCanvasElement) => {
     setLastScanInfo(i18n._('session.scan.ocr.reading'));
     setLastOcrText(undefined);
     try {
       // Credential labels are often printed sideways along the device edge
       // (e.g. Makerfabs), so sweep orientations and stop at the first that
       // yields a valid DevEUI. Upright labels accept on the first (0°) pass.
-      const { text, rawText, confidence } = await recognizeText(frame, {
+      const { text, rawText, confidence } = await recognizeText(source, {
         orientations: [0, 90, 270, 180],
         accept: (r) => {
           try { return isDevEui(parseQr(r.text).devEui); }
@@ -413,10 +408,58 @@ export function SessionPage() {
     } catch (err) {
       setLastScanInfo(i18n._('session.scan.ocr.failed', { message: err instanceof Error ? err.message : String(err) }));
       if (audioEnabled) beepError();
+    }
+  }, [audioEnabled, applyParsedResult]);
+
+  // OCR capture from the current viewfinder frame.
+  const onCaptureText = useCallback(async () => {
+    if (ocrBusy) return;
+    const frame = scannerRef.current?.captureFrame();
+    if (!frame) {
+      setLastScanInfo(i18n._('session.scan.camera_not_ready'));
+      return;
+    }
+    setOcrBusy(true);
+    try {
+      await runOcr(frame);
     } finally {
       setOcrBusy(false);
     }
-  }, [ocrBusy, audioEnabled, applyParsedResult]);
+  }, [ocrBusy, runOcr]);
+
+  // Uploaded photo: try it as a QR code first, through the same onScan path
+  // as the live camera (so multi mode queues it). When there is no QR, or the
+  // QR carries no credentials (e.g. a product URL — see onScan), single mode
+  // falls back to OCR of the label. Multi mode is QR-only, as with the camera.
+  const onUploadPhoto = useCallback(async (file: File) => {
+    if (ocrBusy) return;
+    setOcrBusy(true);
+    setLastScanInfo(i18n._('session.scan.photo.reading'));
+    setLastOcrText(undefined);
+    try {
+      const canvas = await imageFileToCanvas(file);
+      const qr = await decodeQrFromImage(canvas);
+      if (qr !== null) {
+        let hasCredentials = false;
+        try { hasCredentials = isDevEui(parseQr(qr).devEui); }
+        catch { /* not a credential QR */ }
+        if (hasCredentials || multiMode) {
+          onScan(qr);
+          return;
+        }
+      } else if (multiMode) {
+        setLastScanInfo(i18n._('session.scan.photo.no_qr'));
+        if (audioEnabled) beepError();
+        return;
+      }
+      await runOcr(canvas);
+    } catch (err) {
+      setLastScanInfo(i18n._('session.scan.photo.failed', { message: err instanceof Error ? err.message : String(err) }));
+      if (audioEnabled) beepError();
+    } finally {
+      setOcrBusy(false);
+    }
+  }, [ocrBusy, multiMode, audioEnabled, onScan, runOcr]);
 
   // Add every queued device to ChirpStack, one at a time. A failure is set
   // aside (kept in the queue, marked failed) and the run continues with the
@@ -572,22 +615,44 @@ export function SessionPage() {
                     {t(scanHintKey)}
                   </Typography>
 
-                  {/* OCR fallback is single-device only — multi mode is QR-only. */}
-                  {!multiMode && (
-                    <Stack direction="row" spacing={1} alignItems="center">
+                  <Stack spacing={0.5}>
+                    <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
+                      {/* OCR fallback is single-device only — multi mode is QR-only. */}
+                      {!multiMode && (
+                        <Button
+                          variant="outlined"
+                          onClick={onCaptureText}
+                          disabled={!scannerActive || submitting || ocrBusy}
+                          startIcon={ocrBusy ? <CircularProgress size={16} /> : <TextFieldsIcon />}
+                        >
+                          {ocrBusy ? t('session.scan.read_text.reading') : t('session.scan.read_text.button')}
+                        </Button>
+                      )}
+                      {/* Not gated on the camera: this is the path when it is blocked. */}
                       <Button
                         variant="outlined"
-                        onClick={onCaptureText}
-                        disabled={!scannerActive || submitting || ocrBusy}
-                        startIcon={ocrBusy ? <CircularProgress size={16} /> : <TextFieldsIcon />}
+                        component="label"
+                        disabled={submitting || ocrBusy || bulkRunning}
+                        startIcon={<AddPhotoAlternateIcon />}
                       >
-                        {ocrBusy ? t('session.scan.read_text.reading') : t('session.scan.read_text.button')}
+                        {t('session.scan.photo.button')}
+                        <input
+                          hidden
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            // Reset so picking the same file again still fires onChange.
+                            e.target.value = '';
+                            if (file) void onUploadPhoto(file);
+                          }}
+                        />
                       </Button>
-                      <Typography variant="caption" color="text.secondary">
-                        {t('session.scan.read_text.helper')}
-                      </Typography>
                     </Stack>
-                  )}
+                    <Typography variant="caption" color="text.secondary">
+                      {multiMode ? t('session.scan.photo.helper_multi') : t('session.scan.photo.helper')}
+                    </Typography>
+                  </Stack>
 
                   {lastScanInfo && (
                     <Alert severity="info" variant="outlined" sx={{ py: 0.5 }}>

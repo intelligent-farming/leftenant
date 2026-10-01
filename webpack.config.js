@@ -134,15 +134,17 @@ module.exports = (_env, argv) => {
     performance: {
       // Three data bundles dominate the entrypoint and are intentional:
       //   - IEEE OUI registry        ~1.8 MB  (offline vendor identification)
-      //   - TTN device catalog       ~3.8 MB  (curated subset of vendors)
-      //   - normalized codec catalog ~2.6 MB  (codec.js + device.json for every
-      //                                        device in lorawan-codec-normalization)
-      // Total payload ~10 MB raw / ~2 MB gzipped. Acceptable for a
+      //   - TTN device catalog       ~4.5 MB  (profiles for curated vendors and
+      //                                        every normalized device)
+      //   - normalized codec catalog ~6.5 MB  (codec.js for every device in
+      //                                        lorawan-codec-normalization, plus
+      //                                        its device-index.json)
+      // Total payload ~14 MB raw / ~2.3 MB gzipped. Acceptable for a
       // local-network tool. Bump the budget so warnings don't drown out
       // anything genuinely problematic.
       hints: isProd ? 'warning' : false,
-      maxAssetSize: 12 * 1024 * 1024,
-      maxEntrypointSize: 12 * 1024 * 1024,
+      maxAssetSize: 16 * 1024 * 1024,
+      maxEntrypointSize: 16 * 1024 * 1024,
     },
   };
 };

@@ -10,7 +10,8 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import { AppShell } from '../components/AppShell';
 
 import * as ttn from '@intelligent-farming/ttn-to-chirpstack/browser';
-import { normalizedCodecFor, normalizedProvidesFor } from '../lib/codec-normalization';
+import { normalizedCodecFor } from '../lib/codec-normalization';
+import { searchModels, type CatalogModel } from '../lib/device-catalog';
 import { CodeEditor } from '../components/CodeEditor';
 import {
   createChirpStackClient, listAllApplications, listAllDeviceProfiles,
@@ -53,6 +54,11 @@ const REG_PARAMS = [
   ttn.RegParamsRevision.RP002_1_0_3,
 ];
 
+// Standard profile for a catalog model TTN has no profile for, and the manual
+// form's starting values: LoRaWAN 1.0.3, OTAA, class A.
+const DEFAULT_MAC_VERSION = ttn.MacVersion.LORAWAN_1_0_3;
+const DEFAULT_REG_PARAMS = ttn.RegParamsRevision.A;
+
 type Mode = 'catalog' | 'manual' | 'existing';
 type AppChoice = 'existing' | 'new';
 
@@ -79,15 +85,15 @@ export function SessionSetupPage() {
   // normalized codec preferred, upstream TTN codec as fallback — into an
   // editable buffer the operator can review or tweak before starting.
   const [modelQuery, setModelQuery] = useState('');
-  const [model, setModel] = useState<ttn.SearchHit | null>(null);
+  const [model, setModel] = useState<CatalogModel | null>(null);
   const [catalogCodec, setCatalogCodec] = useState('');
   const [catalogCodecSource, setCatalogCodecSource] = useState<'normalized' | 'ttn' | 'none'>('none');
   const [catalogProvides, setCatalogProvides] = useState<string[]>([]);
 
   // Manual mode state.
   const [manualName, setManualName] = useState('');
-  const [manualMacVersion, setManualMacVersion] = useState<string>(ttn.MacVersion.LORAWAN_1_0_3);
-  const [manualRegParams, setManualRegParams] = useState<string>(ttn.RegParamsRevision.A);
+  const [manualMacVersion, setManualMacVersion] = useState<string>(DEFAULT_MAC_VERSION);
+  const [manualRegParams, setManualRegParams] = useState<string>(DEFAULT_REG_PARAMS);
   const [manualOtaa, setManualOtaa] = useState(true);
   const [manualClassB, setManualClassB] = useState(false);
   const [manualClassC, setManualClassC] = useState(false);
@@ -165,8 +171,8 @@ export function SessionSetupPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings.chirpStackUrl, settings.apiKey, settings.tenantId]);
 
-  const modelHits = useMemo<ttn.SearchHit[]>(
-    () => modelQuery.length >= 2 ? ttn.searchHits(modelQuery, 20) : [],
+  const modelHits = useMemo<CatalogModel[]>(
+    () => modelQuery.length >= 2 ? searchModels(modelQuery, 20) : [],
     [modelQuery],
   );
 
@@ -185,7 +191,7 @@ export function SessionSetupPage() {
     if (normalized) {
       setCatalogCodec(normalized);
       setCatalogCodecSource('normalized');
-      setCatalogProvides(normalizedProvidesFor(model.vendor, model.device) ?? []);
+      setCatalogProvides(model.provides);
       return;
     }
     // Fall back to the upstream TTN codec. The script is region-independent, so
@@ -193,6 +199,7 @@ export function SessionSetupPage() {
     setCatalogProvides([]);
     let ttnCodec = '';
     try {
+      if (!model.regions) throw new Error('no TTN profile');
       const probeRegion = (model.regions.includes(region) ? region : model.regions[0]) as ttn.Region;
       const v4 = ttn.toChirpStack(model.vendor, model.device, probeRegion);
       if (v4.payloadCodecRuntime === ttn.PayloadCodecRuntime.JS && v4.payloadCodecScript) {
@@ -207,12 +214,14 @@ export function SessionSetupPage() {
   }, [model?.vendor, model?.device]);
 
   const regionRow = REGIONS.find((r) => r.ttn === region) ?? REGIONS[0];
-  const modelRegionMismatch = mode === 'catalog' && model && !model.regions.includes(region);
+  const modelRegionMismatch = mode === 'catalog' && !!model?.regions && !model.regions.includes(region);
+  // No TTN profile for the picked model: Start builds a standard one instead.
+  const modelUsesDefaultProfile = mode === 'catalog' && !!model && !model.regions;
 
   const canStart = (() => {
     if (working) return false;
     if (mode === 'catalog') {
-      if (!model || !model.regions.includes(region)) return false;
+      if (!model || modelRegionMismatch) return false;
     } else if (mode === 'manual') {
       if (manualName.trim().length === 0) return false;
     } else {
@@ -266,7 +275,28 @@ export function SessionSetupPage() {
       } else {
         let ttnProfile: Parameters<typeof ensureDeviceProfile>[2];
         let chirpstackRegion: string;
-        if (mode === 'catalog' && model) {
+        if (mode === 'catalog' && model && !model.regions) {
+          // No TTN profile: standard profile for the selected region, with the
+          // codec from the editable buffer.
+          ttnProfile = {
+            region: regionRow.chirpstack,
+            macVersion: DEFAULT_MAC_VERSION,
+            regParamsRevision: DEFAULT_REG_PARAMS,
+            supportsOtaa: true,
+            supportsClassB: false,
+            supportsClassC: false,
+            payloadCodecRuntime: catalogCodec.trim()
+              ? ttn.PayloadCodecRuntime.JS
+              : ttn.PayloadCodecRuntime.NONE,
+            payloadCodecScript: catalogCodec.trim() ? catalogCodec : undefined,
+            name: model.name,
+            description: 'Standard profile via Leftenant (no TTN device profile)',
+          };
+          vendorSlug = model.vendor;
+          deviceSlug = model.device;
+          modelName = model.name;
+          chirpstackRegion = regionRow.chirpstack;
+        } else if (mode === 'catalog' && model) {
           const v4 = ttn.toChirpStack(model.vendor, model.device, region as ttn.Region);
           ttnProfile = {
             region: v4.region,
@@ -344,9 +374,11 @@ export function SessionSetupPage() {
 
   const previewProfileName = (() => {
     if (mode === 'catalog' && model) {
+      const regions = model.regions;
+      if (!regions) return profileNameFor(model.device, regionRow.chirpstack);
       const v4 = ttn.toChirpStack(
         model.vendor, model.device,
-        (model.regions.includes(region) ? region : model.regions[0]) as ttn.Region,
+        (regions.includes(region) ? region : regions[0]) as ttn.Region,
       );
       return profileNameFor(model.device, v4.region);
     }
@@ -412,7 +444,8 @@ export function SessionSetupPage() {
                       <Stack>
                         <span>{opt.name}</span>
                         <Typography variant="caption" color="text.secondary">
-                          {opt.vendor}/{opt.device} · {opt.regions.join(', ')}
+                          {opt.vendor}/{opt.device} · {opt.regions ? opt.regions.join(', ') : t('setup.search.option.anyRegion')}
+                          {!opt.normalized && ` · ${t('setup.search.option.ttnOnly')}`}
                         </Typography>
                       </Stack>
                     </li>
@@ -421,7 +454,12 @@ export function SessionSetupPage() {
                 />
                 {modelRegionMismatch && (
                   <Alert severity="warning">
-                    {t('setup.region_mismatch', { name: model!.name, region, regions: model!.regions.join(', ') })}
+                    {t('setup.region_mismatch', { name: model!.name, region, regions: model!.regions!.join(', ') })}
+                  </Alert>
+                )}
+                {modelUsesDefaultProfile && (
+                  <Alert severity="info">
+                    {t('setup.catalog.defaultProfile', { name: model!.name, region: regionRow.chirpstack })}
                   </Alert>
                 )}
                 {model && (

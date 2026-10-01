@@ -1,6 +1,6 @@
 // Minimal typing for webpack's `require.context` — a build-time module-globbing
 // API with no runtime equivalent. We use it (see `lib/codec-normalization.ts`)
-// to bundle the codec files shipped inside the
+// to bundle the codec.js files shipped inside the
 // `@intelligent-farming/lorawan-codec-normalization` package, which has no
 // browser entry of its own. Declared here so we don't pull in
 // `@types/webpack-env` just for one call signature.
